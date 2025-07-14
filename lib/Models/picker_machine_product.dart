@@ -54,6 +54,7 @@ class PickerMachineProductDetailsData {
         }).toList();
       }
 
+
       return [];
     } catch (e) {
       print("❌ Error in fetchPickerMachineData: $e");
