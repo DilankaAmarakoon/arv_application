@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "747706141861",
+    "project_id": "flutter-firebase-staff-noti",
+    "storage_bucket": "flutter-firebase-staff-noti.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:747706141861:android:d39888d37f224ba0ed114c",
+        "android_client_info": {
+          "package_name": "com.example.staff_mangement"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4nJFXD_ckgoiyMU9PNWVX827KozUwTqs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
