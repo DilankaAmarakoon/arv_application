@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:staff_mangement/constants/colors.dart';
-import 'package:staff_mangement/providers/handlle_data_provider.dart';
+import 'package:staff_mangement/providers/picker_data_provider.dart';
 import 'package:staff_mangement/providers/notification_state_provider.dart';
 import 'package:staff_mangement/screens/home_page.dart';
+
+import 'notificationHandle/firebase_options.dart';
 
 void main() async {
   SystemChrome.setSystemUIOverlayStyle(
@@ -15,7 +17,9 @@ void main() async {
     ),
   );
   WidgetsFlutterBinding.ensureInitialized();
-
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   await Firebase.initializeApp();
   runApp(
     MultiProvider(
@@ -23,7 +27,7 @@ void main() async {
         ChangeNotifierProvider(
           create: (context) => NotificationStateProvider(),
         ),ChangeNotifierProvider(
-          create: (context) => HandleDataProvider(),
+          create: (context) => PickerDataProvider(),
         ),
       ],
       child: const MyApp(),

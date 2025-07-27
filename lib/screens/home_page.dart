@@ -28,13 +28,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Scaffold(
-        body: Padding(
-          padding: mainPadding,
-          child: isLoggedIn ? Dashboard() : LoginScreen(),
-        ),
-      ),
+    return Scaffold(
+      body: isLoggedIn ? Dashboard() : SimpleLoginScreen(),
     );
   }
 

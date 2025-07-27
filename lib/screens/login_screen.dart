@@ -1,158 +1,397 @@
+
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart' show timeDilation;
-import 'package:flutter_login/flutter_login.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xml_rpc/client_c.dart' as xml_rpc;
-import '../constants/colors.dart';
 import '../constants/static_data.dart';
+import '../constants/theme.dart';
 import 'dashboard_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  static const routeName = '/auth';
+class SimpleLoginScreen extends StatefulWidget {
+  const SimpleLoginScreen({super.key});
 
-  const LoginScreen({super.key});
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<SimpleLoginScreen> createState() => _SimpleLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  Duration get loginTime => Duration(milliseconds: timeDilation.ceil() * 1000);
+class _SimpleLoginScreenState extends State<SimpleLoginScreen>
+    with TickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
-  Future<String?> _recoverPassword(String name) {
-    return Future.delayed(loginTime).then((_) {
-      // }
-      return null;
-    });
-  }
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+  String? _errorMessage;
 
-  Future<String?> _signupConfirm(String error, LoginData data) {
-    return Future.delayed(loginTime).then((_) {
-      return null;
-    });
-  }
-
-  bool isLoginSuccess = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: FlutterLogin(
-        theme: LoginTheme(
-          primaryColor: Colors.white,
-          errorColor: Colors.redAccent,
-          buttonTheme: LoginButtonTheme(
-            backgroundColor: Color(0xFF0A7880),
-            splashColor: k2mainColor,
-            highlightColor: Colors.black12,
-          ),
-          cardTheme: CardTheme(color: k2Background),
-          inputTheme: InputDecorationTheme(
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: k1mainColor),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: k2mainColor, width: 2.0),
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
-        hideForgotPasswordButton: true,
-        title: "ABC Staff ",
-        logo: null,
-        navigateBackAfterRecovery: true,
-        onConfirmRecover: _signupConfirm,
-        onConfirmSignup: _signupConfirm,
-        loginAfterSignUp: false,
-        userValidator: (value) {
-          if (value!.isEmpty) {
-            return "Enter Valid Email";
-          }
-          return null;
-        },
-        passwordValidator: (value) {
-          if (value!.isEmpty) {
-            return 'Enter Valid Password';
-          }
-          return null;
-        },
-        onLogin: (loginData) async {
-          debugPrint('Login info');
-          debugPrint('Name: ${loginData.name}');
-          debugPrint('Password: ${loginData.password}');
-          isLoginSuccess = false;
-
-          int userId = await checkUserLogin(
-            dbName,
-            loginData.name,
-            loginData.password,
-          );
-          debugPrint("User ID: $userId");
-          if (userId > 0) {
-            isLoginSuccess = true;
-            return null;
-          } else {
-            isLoginSuccess = false;
-            debugPrint("ddddddddd");
-            return Future.value("Invalid Email or password");
-          }
-        },
-        onSubmitAnimationCompleted: () {
-          if (isLoginSuccess) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => Dashboard()),
-            );
-          }
-        },
-        onRecoverPassword: (name) {
-          debugPrint('Recover password info');
-          debugPrint('Name: $name');
-          return _recoverPassword(name);
-        },
-      ),
-    );
+  void initState() {
+    super.initState();
+    _setupAnimations();
   }
 
-  Future<int> checkUserLogin(
-    String dbName,
-    String userName,
-    String password,
-  ) async {
+  void _setupAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
+    ));
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final userId = await _performLogin(
+        dbName,
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+
+      if (userId > 0) {
+        _showSuccessAndNavigate();
+      } else {
+        setState(() {
+          _errorMessage = 'Invalid email or password';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Network error. Please try again.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<int> _performLogin(String dbName, String email, String password) async {
     try {
       final userId = await xml_rpc.call(
-        Uri.parse(
-          '${baseUrl}xmlrpc/2/common',
-        ),
+        Uri.parse('${baseUrl}xmlrpc/2/common'),
         'login',
-        [dbName, userName, password],
+        [dbName, email, password],
       );
+
       if (userId != false) {
-        SharedPreferences preferance = await SharedPreferences.getInstance();
-        preferance.setInt("user_Id", userId);
-        preferance.setString("password", password);
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setInt("user_Id", userId);
+        await preferences.setString("password", password);
         return userId;
       }
       return -1;
     } catch (e) {
-      return -1; // exception
+      return -1;
     }
   }
-}
 
-class IntroWidget extends StatelessWidget {
-  const IntroWidget({super.key});
+  void _showSuccessAndNavigate() {
+    // Show success animation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: AppColors.onPrimary),
+            const SizedBox(width: 12),
+            const Text('Login successful!'),
+          ],
+        ),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        ),
+      ),
+    );
+
+    // Navigate after delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+          const Dashboard(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.primaryLight,
+              AppColors.primary,
+              AppColors.primaryDark,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: _buildLoginForm(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginForm() {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 400),
+      child: Card(
+        elevation: 8,
+        shadowColor: AppColors.shadow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppBorderRadius.xl),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: AppSpacing.xl),
+                _buildEmailField(),
+                const SizedBox(height: AppSpacing.lg),
+                _buildPasswordField(),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _buildErrorMessage(),
+                ],
+                const SizedBox(height: AppSpacing.xl),
+                _buildLoginButton(),
+                const SizedBox(height: AppSpacing.lg),
+                _buildFooter(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
       children: [
-        Row(
-          children: <Widget>[
-            Expanded(child: Divider()),
-            Padding(padding: EdgeInsets.all(8.0), child: Text("Log In")),
-            Expanded(child: Divider()),
-          ],
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.primary.withOpacity(0.2),
+              width: 2,
+            ),
+          ),
+          child: const Icon(
+            Icons.business_center_rounded,
+            size: 40,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          'Staff Management',
+          style: AppTextStyles.heading2.copyWith(
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Welcome back! Please sign in to continue.',
+          style: AppTextStyles.body2.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: _emailController,
+      keyboardType: TextInputType.emailAddress,
+      textInputAction: TextInputAction.next,
+      decoration: InputDecoration(
+        labelText: 'Email',
+        hintText: 'Enter your email address',
+        prefixIcon: const Icon(Icons.email_outlined),
+        filled: true,
+        fillColor: AppColors.surfaceVariant.withOpacity(0.5),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your email';
+        }
+        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+          return 'Please enter a valid email';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: _obscurePassword,
+      textInputAction: TextInputAction.done,
+      onFieldSubmitted: (_) => _handleLogin(),
+      decoration: InputDecoration(
+        labelText: 'Password',
+        hintText: 'Enter your password',
+        prefixIcon: const Icon(Icons.lock_outlined),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          ),
+          onPressed: () {
+            setState(() {
+              _obscurePassword = !_obscurePassword;
+            });
+          },
+        ),
+        filled: true,
+        fillColor: AppColors.surfaceVariant.withOpacity(0.5),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your password';
+        }
+        // if (value.length < 6) {
+        //   return 'Password must be at least 6 characters';
+        // }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.error.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        border: Border.all(
+          color: AppColors.error.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: AppColors.error,
+            size: 20,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              _errorMessage!,
+              style: AppTextStyles.body2.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoginButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleLogin,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          disabledBackgroundColor: AppColors.disabled,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          ),
+          elevation: 2,
+        ),
+        child: _isLoading
+            ? const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.onPrimary),
+          ),
+        )
+            : const Text(
+          'Sign In',
+          style: AppTextStyles.button,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Column(
+      children: [
+        const Divider(color: AppColors.divider),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Secure Login • Enterprise Grade',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
       ],
     );

@@ -68,90 +68,90 @@ class _FillerCardContainerState extends State<FillerCardContainer> {
                 ],
               ),
             ),
-            SizedBox(
-              height: 40,
-              child: Stack(
-                children: [
-                  SimpleAnimationProgressBar(
-                    height: 15,
-                    width: MediaQuery.of(context).size.width * 0.95,
-                    backgroundColor: Colors.grey.shade300,
-                    foregrondColor: Colors.blue,
-                    ratio: 0.5, // example progress
-                    direction: Axis.horizontal,
-                    curve: Curves.fastLinearToSlowEaseIn,
-                    duration: const Duration(seconds: 3),
-                    borderRadius: BorderRadius.circular(0),
-                    gradientColor: LinearGradient(
-                      colors: [
-                        // ignore: deprecated_member_use
-                        k1mainColor.withOpacity(0.7),
-                        // ignore: deprecated_member_use
-                        Colors.greenAccent.withOpacity(0.7),
-                      ],
-                    ),
-                  ),
-                  // Positioned markers over the progress bar
-                  Positioned.fill(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final totalWidth = constraints.maxWidth;
-                        final markers = [0.5, 1.0];
-                        return Stack(
-                          children:
-                              markers.map((ratio) {
-                                if (ratio == 1.0) {
-                                  return Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Container(
-                                          width: 2,
-                                          height:
-                                              15, // Match the height of the progress bar
-                                          color: k2mainColor,
-                                        ),
-                                        // Optional: Label for the last marker (100%)
-                                        // Text(
-                                        //   "PHOTO",
-                                        //   style: TextStyle(fontSize: 12),
-                                        // ),
-                                      ],
-                                    ),
-                                  );
-                                }
-                                final left = totalWidth * ratio + 5;
-                                return Positioned(
-                                  left: left,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Container(
-                                        width: 2,
-                                        height:
-                                            15, // Match the height of the progress bar
-                                        color: k2mainColor,
-                                      ),
-                                      // Label for the other markers (25%, 50%, 75%)
-                                      // Text(
-                                      //   "${(ratio * 100).toInt()}%",
-                                      //   style: TextStyle(fontSize: 12),
-                                      // ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // SizedBox(
+            //   height: 40,
+            //   child: Stack(
+            //     children: [
+            //       SimpleAnimationProgressBar(
+            //         height: 15,
+            //         width: MediaQuery.of(context).size.width * 0.95,
+            //         backgroundColor: Colors.grey.shade300,
+            //         foregrondColor: Colors.blue,
+            //         ratio: 0.5, // example progress
+            //         direction: Axis.horizontal,
+            //         curve: Curves.fastLinearToSlowEaseIn,
+            //         duration: const Duration(seconds: 3),
+            //         borderRadius: BorderRadius.circular(0),
+            //         gradientColor: LinearGradient(
+            //           colors: [
+            //             // ignore: deprecated_member_use
+            //             k1mainColor.withOpacity(0.7),
+            //             // ignore: deprecated_member_use
+            //             Colors.greenAccent.withOpacity(0.7),
+            //           ],
+            //         ),
+            //       ),
+            //       // Positioned markers over the progress bar
+            //       Positioned.fill(
+            //         child: LayoutBuilder(
+            //           builder: (context, constraints) {
+            //             final totalWidth = constraints.maxWidth;
+            //             final markers = [0.5, 1.0];
+            //             return Stack(
+            //               children:
+            //                   markers.map((ratio) {
+            //                     if (ratio == 1.0) {
+            //                       return Align(
+            //                         alignment: Alignment.centerRight,
+            //                         child: Column(
+            //                           crossAxisAlignment:
+            //                               CrossAxisAlignment.end,
+            //                           children: [
+            //                             Container(
+            //                               width: 2,
+            //                               height:
+            //                                   15, // Match the height of the progress bar
+            //                               color: k2mainColor,
+            //                             ),
+            //                             // Optional: Label for the last marker (100%)
+            //                             // Text(
+            //                             //   "PHOTO",
+            //                             //   style: TextStyle(fontSize: 12),
+            //                             // ),
+            //                           ],
+            //                         ),
+            //                       );
+            //                     }
+            //                     final left = totalWidth * ratio + 5;
+            //                     return Positioned(
+            //                       left: left,
+            //                       top: 0,
+            //                       bottom: 0,
+            //                       child: Column(
+            //                         crossAxisAlignment: CrossAxisAlignment.end,
+            //                         children: [
+            //                           Container(
+            //                             width: 2,
+            //                             height:
+            //                                 15, // Match the height of the progress bar
+            //                             color: k2mainColor,
+            //                           ),
+            //                           // Label for the other markers (25%, 50%, 75%)
+            //                           // Text(
+            //                           //   "${(ratio * 100).toInt()}%",
+            //                           //   style: TextStyle(fontSize: 12),
+            //                           // ),
+            //                         ],
+            //                       ),
+            //                     );
+            //                   }).toList(),
+            //             );
+            //           },
+            //         ),
+            //       ),
+            //     ],
+            //   ),
+            // ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

@@ -27,7 +27,7 @@ class _FillerScreenState extends State<FillerScreen> {
         ServiceStatusDragableSheet();
     return SafeArea(
       child: Scaffold(
-        appBar: appBarSection(context),
+        // appBar: appBarSection(title: 'RTrtrtr',),
         endDrawer: Drawer(
           child: Align(
             alignment: Alignment.topCenter,
