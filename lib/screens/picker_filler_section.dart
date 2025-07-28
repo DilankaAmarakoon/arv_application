@@ -28,6 +28,7 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  Key _screenKey = UniqueKey();
 
   final List<String> _filterOptions = ['All', 'Active', 'Maintenance', 'Offline'];
 
@@ -60,9 +61,10 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
   }
 
   Future<void> _loadMachineData() async {
+    print("text uuuu");
     try {
-      await Provider.of<PickerDataProvider>(context, listen: false).fetchMachinePickList(role:widget.role);
       setState(() => _isLoading = true);
+      await Provider.of<PickerDataProvider>(context, listen: false).fetchMachinePickList(role:widget.role);
       setState(() {
         _machines =  Provider.of<PickerDataProvider>(context,listen: false).pickerMachineDetails;
         _isLoading = false;
@@ -78,7 +80,11 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
 
 
   List<MachinePickListModel> get _filteredMachines {
-    List<MachinePickListModel> filtered = _machines;
+    print("sdsdsd444444");
+    List<MachinePickListModel> filtered = Provider.of<PickerDataProvider>(context,listen: false).pickerMachineDetails;
+
+
+    print("√,,,.>>$filtered");
 
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
@@ -107,7 +113,9 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
+      key: _screenKey,
       backgroundColor: AppColors.background,
       appBar: appBarSection(
         icon: Icons.analytics_outlined,
@@ -338,20 +346,25 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
     );
   }
 
-  void _navigateToMachineProducts(MachinePickListModel machine) async {
+  Future<void> _navigateToMachineProducts(MachinePickListModel machine) async {
     try {
       if (mounted) {
         List<dynamic> machineDetails = [
           {
-            "pickListId":machine.pick_list_id,
-            "name":machine.name,
+            "pickListId": machine.pick_list_id,
+            "name": machine.name,
           }
         ];
-        Navigator.push(
+
+        await Navigator.push(
           context,
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
-                PickerFillerMachineProductScreen(role:widget.role,machineDetails:machineDetails,machineProductIdsList:machine.pickListIds),
+                PickerFillerMachineProductScreen(
+                  role: widget.role,
+                  machineDetails: machineDetails,
+                  machineProductIdsList: machine.pickListIds,
+                ),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return SlideTransition(
                 position: Tween<Offset>(
@@ -367,11 +380,14 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
             transitionDuration: const Duration(milliseconds: 300),
           ),
         );
+
+        // 🔁 Reload the data when user returns from details screen
+        await _loadMachineData();
       }
     } catch (e) {
-      // Close loading dialog if open
       if (mounted) Navigator.pop(context);
       _showErrorMessage('Failed to load products: ${e.toString()}');
     }
   }
+
 }

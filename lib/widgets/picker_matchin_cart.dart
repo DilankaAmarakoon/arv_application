@@ -52,7 +52,10 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
 
   @override
   Widget build(BuildContext context) {
+
+    print("dfdfdfdf.....${widget.machine.state}");
     final isActive = widget.machine.name != 0;
+    final isPicked = widget.machine.state == 'picked' && isActive;
 
     return ScaleTransition(
       scale: _scaleAnimation,
@@ -70,9 +73,9 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
           borderRadius: BorderRadius.circular(AppBorderRadius.lg),
           child: Container(
             constraints: const BoxConstraints(
-            minHeight: 50,
-          ),
-            padding: const EdgeInsets.all(AppSpacing.md), // Reduced padding
+              minHeight: 50,
+            ),
+            padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppBorderRadius.lg),
               gradient: LinearGradient(
@@ -84,8 +87,10 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
                 ],
               ),
               border: Border.all(
-                color: isActive
+                color: isPicked
                     ? AppColors.success.withOpacity(0.3)
+                    : isActive
+                    ? AppColors.primary.withOpacity(0.3)
                     : AppColors.divider,
                 width: 1.5,
               ),
@@ -101,10 +106,10 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
                 // Main content
                 Row(
                   children: [
-                    _buildMachineIcon(isActive),
+                    _buildMachineIcon(isActive, isPicked),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(child: _buildMachineInfo()),
-                    _buildActionButton(),
+                    _buildActionButton(isPicked),
                   ],
                 ),
               ],
@@ -115,33 +120,51 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
     );
   }
 
-  Widget _buildMachineIcon(bool isActive) {
+  Widget _buildMachineIcon(bool isActive, bool isPicked) {
+    Color iconColor;
+    Color backgroundColor;
+    Color borderColor;
+    IconData iconData;
+
+    if (isPicked) {
+      iconColor = AppColors.success;
+      backgroundColor = AppColors.success.withOpacity(0.1);
+      borderColor = AppColors.success.withOpacity(0.3);
+      iconData = Icons.check_circle;
+    } else if (isActive) {
+      iconColor = AppColors.primary;
+      backgroundColor = AppColors.primary.withOpacity(0.1);
+      borderColor = AppColors.primary.withOpacity(0.3);
+      iconData = Icons.kitchen;
+    } else {
+      iconColor = AppColors.warning;
+      backgroundColor = AppColors.warning.withOpacity(0.1);
+      borderColor = AppColors.warning.withOpacity(0.3);
+      iconData = Icons.kitchen;
+    }
+
     return Container(
-      width: 50, // Reduced size
-      height: 50, // Reduced size
+      width: 50,
+      height: 50,
       decoration: BoxDecoration(
-        color: isActive
-            ? AppColors.success.withOpacity(0.1)
-            : AppColors.warning.withOpacity(0.1),
+        color: backgroundColor,
         shape: BoxShape.circle,
         border: Border.all(
-          color: isActive
-              ? AppColors.success.withOpacity(0.3)
-              : AppColors.warning.withOpacity(0.3),
+          color: borderColor,
           width: 2,
         ),
       ),
       child: Icon(
-        Icons.kitchen,
-        color: isActive ? AppColors.success : AppColors.warning,
-        size: 24, // Reduced icon size
+        iconData,
+        color: iconColor,
+        size: 24,
       ),
     );
   }
 
   Widget _buildMachineInfo() {
     return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.lg), // Add padding to avoid overlap with status badge
+      padding: const EdgeInsets.only(right: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -157,86 +180,80 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
           ),
           const SizedBox(height: AppSpacing.xs),
           if (widget.machine.name.isNotEmpty) ...[
-            // Row(
-            //   children: [
-            //     Icon(
-            //       Icons.route_outlined,
-            //       size: 14, // Reduced icon size
-            //       color: AppColors.onSurfaceVariant,
-            //     ),
-            //     const SizedBox(width: AppSpacing.xs),
-            //     Expanded(
-            //       child: Text(
-            //         "widget.machine.routeName",
-            //         style: AppTextStyles.caption.copyWith(
-            //           color: AppColors.onSurfaceVariant,
-            //         ),
-            //         maxLines: 1,
-            //         overflow: TextOverflow.ellipsis,
-            //       ),
-            //     ),
-            //   ],
-            // ),
+            // Additional machine info can be added here if needed
           ],
         ],
       ),
     );
   }
 
-  // Widget _buildStatusBadge() {
-  //   final isActive = widget.machine.machineCount > 0;
-  //
-  //   return Container(
-  //     padding: const EdgeInsets.symmetric(
-  //       horizontal: AppSpacing.sm,
-  //       vertical: 2,
-  //     ),
-  //     decoration: BoxDecoration(
-  //       color: isActive
-  //           ? AppColors.success.withOpacity(0.1)
-  //           : AppColors.warning.withOpacity(0.1),
-  //       borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-  //       border: Border.all(
-  //         color: isActive
-  //             ? AppColors.success.withOpacity(0.3)
-  //             : AppColors.warning.withOpacity(0.3),
-  //       ),
-  //     ),
-  //     child: Text(
-  //       isActive ? 'Active' : 'Inactive',
-  //       style: AppTextStyles.caption.copyWith(
-  //         color: isActive ? AppColors.success : AppColors.warning,
-  //         fontWeight: FontWeight.w600,
-  //         fontSize: 10, // Slightly smaller text for the badge
-  //       ),
-  //     ),
-  //   );
-  // }
+  Widget _buildStatusBadge() {
+    final isActive = widget.machine.name != 0;
+    final isPicked = widget.role == 'picker' && isActive;
 
-  Widget _buildActionButton() {
+    String statusText;
+    Color statusColor;
+
+    if (isPicked) {
+      statusText = 'Picked';
+      statusColor = AppColors.success;
+    } else if (isActive) {
+      statusText = 'Active';
+      statusColor = AppColors.primary;
+    } else {
+      statusText = 'Inactive';
+      statusColor = AppColors.warning;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+        border: Border.all(
+          color: statusColor.withOpacity(0.3),
+        ),
+      ),
+      child: Text(
+        statusText,
+        style: AppTextStyles.caption.copyWith(
+          color: statusColor,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(bool isPicked) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          width: 35, // Reduced size
-          height: 35, // Reduced size
+          width: 35,
+          height: 35,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: isPicked
+                ? AppColors.success.withOpacity(0.1)
+                : AppColors.primary.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.arrow_forward_ios,
-            color: AppColors.primary,
-            size: 16, // Reduced icon size
+          child: Icon(
+            isPicked ? Icons.check : Icons.arrow_forward_ios,
+            color: isPicked ? AppColors.success : AppColors.primary,
+            size: 16,
           ),
         ),
-        const SizedBox(height: 2), // Reduced spacing
+        const SizedBox(height: 2),
         Text(
-          'View',
+          isPicked ? 'Picked' : 'View',
           style: AppTextStyles.caption.copyWith(
-            color: AppColors.primary,
+            color: isPicked ? AppColors.success : AppColors.primary,
             fontWeight: FontWeight.w600,
-            fontSize: 10, // Slightly smaller text
+            fontSize: 10,
           ),
         ),
       ],

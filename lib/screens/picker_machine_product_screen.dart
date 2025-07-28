@@ -7,6 +7,7 @@ import '../constants/theme.dart';
 import '../Models/machine_pick_list_model.dart';
 import '../Models/picker_machine_product.dart';
 import '../providers/picker_data_provider.dart';
+import '../widgets/filler_operation_dragable_form_sheet.dart';
 import '../widgets/picker_product_cart.dart';
 
 class PickerFillerMachineProductScreen extends StatefulWidget {
@@ -389,6 +390,42 @@ class _PickerFillerMachineProductScreenState
     });
   }
 
+  void _handleFormSubmission(Map<String, dynamic> formData, List selectedProducts) {
+    // Process the form data and selected products
+    print('Form Data: $formData');
+    print('Selected Products: $selectedProducts');
+
+    // Your existing logic
+    Provider.of<PickerDataProvider>(context, listen: false)
+        .savePickerMachineProductData(widget.role, widget.machineDetails[0]["pickListId"]);
+    final list = Provider.of<PickerDataProvider>(context,listen: false).pickerMachineDetails;
+    for(MachinePickListModel item in list){
+      if(item.pick_list_id == widget.machineDetails[0]["pickListId"]){
+        item.state = "picked";
+     }
+    }
+
+    // Navigate back
+    Navigator.pop(context);
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 8),
+            Text('Operation completed successfully!'),
+          ],
+        ),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
   void _confirmSelection() {
     totalPickedItem = 0;
     final selectedProducts =productsList.where(
@@ -400,130 +437,141 @@ class _PickerFillerMachineProductScreenState
     }
     if (selectedProducts.isEmpty) return;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-        ),
-        title: Row(
-          children: [
-            Icon(Icons.shopping_cart, color: AppColors.primary),
-            const SizedBox(width: AppSpacing.md),
-            const Text('Confirm Selection'),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.role == "picker" ?
-                'Selected ${selectedProducts.length} products for picking:' : 'Selected ${selectedProducts.length} products for filling:',
-                style: AppTextStyles.body1.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 200),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: selectedProducts.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-
-                  itemBuilder: (context, index) {
-                    final product = selectedProducts[index];
-                    return ListTile(
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.inventory_2,
-                          color: AppColors.primary,
-                          size: 20,
-                        ),
-                      ),
-                      title: Text(
-                        product.displayName,
-                        style: AppTextStyles.body2.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                        ),
-                        child: Text(
-                          'Qty: ${product.pickAmount}',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.success,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      contentPadding: EdgeInsets.zero,
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: AppColors.info, size: 20),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: Text(
-                        widget.role == "picker" ?
-                        'Total items to pick: $totalPickedItem':'Total items to fill: $totalPickedItem',
-                        style: AppTextStyles.body2.copyWith(
-                          color: AppColors.info,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-
-            onPressed: () {
-              Provider.of<PickerDataProvider>(context,listen: false).savePickerMachineProductData(widget.role,widget.machineDetails[0]["pickListId"]);
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.check),
-            label: const Text('Confirm'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor:  AppColors.primary.withOpacity(0.2),
-            ),
-          ),
-        ],
-      ),
+    FillerOperationConfirmationFormSheet().openDraggableSheet(
+      context,
+      selectedProducts: selectedProducts,
+      totalPickedItem: totalPickedItem,
+      role: widget.role,
+      onConfirm: (formData) {
+        // Handle form submission
+        _handleFormSubmission(formData, selectedProducts);
+      },
     );
+
+    // showDialog(
+    //   context: context,
+    //   builder: (context) => AlertDialog(
+    //     shape: RoundedRectangleBorder(
+    //       borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+    //     ),
+    //     title: Row(
+    //       children: [
+    //         Icon(Icons.shopping_cart, color: AppColors.primary),
+    //         const SizedBox(width: AppSpacing.md),
+    //         const Text('Confirm Selection'),
+    //       ],
+    //     ),
+    //     content: SizedBox(
+    //       width: double.maxFinite,
+    //       child: Column(
+    //         mainAxisSize: MainAxisSize.min,
+    //         crossAxisAlignment: CrossAxisAlignment.start,
+    //         children: [
+    //           Text(
+    //             widget.role == "picker" ?
+    //             'Selected ${selectedProducts.length} products for picking:' : 'Selected ${selectedProducts.length} products for filling:',
+    //             style: AppTextStyles.body1.copyWith(fontWeight: FontWeight.w600),
+    //           ),
+    //           const SizedBox(height: AppSpacing.lg),
+    //           Container(
+    //             constraints: const BoxConstraints(maxHeight: 200),
+    //             child: ListView.separated(
+    //               shrinkWrap: true,
+    //               itemCount: selectedProducts.length,
+    //               separatorBuilder: (context, index) => const Divider(height: 1),
+    //
+    //               itemBuilder: (context, index) {
+    //                 final product = selectedProducts[index];
+    //                 return ListTile(
+    //                   leading: Container(
+    //                     width: 40,
+    //                     height: 40,
+    //                     decoration: BoxDecoration(
+    //                       color: AppColors.primary.withOpacity(0.1),
+    //                       shape: BoxShape.circle,
+    //                     ),
+    //                     child: Icon(
+    //                       Icons.inventory_2,
+    //                       color: AppColors.primary,
+    //                       size: 20,
+    //                     ),
+    //                   ),
+    //                   title: Text(
+    //                     product.displayName,
+    //                     style: AppTextStyles.body2.copyWith(
+    //                       fontWeight: FontWeight.w600,
+    //                     ),
+    //                   ),
+    //                   trailing: Container(
+    //                     padding: const EdgeInsets.symmetric(
+    //                       horizontal: AppSpacing.sm,
+    //                       vertical: 4,
+    //                     ),
+    //                     decoration: BoxDecoration(
+    //                       color: AppColors.success.withOpacity(0.1),
+    //                       borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+    //                     ),
+    //                     child: Text(
+    //                       'Qty: ${product.pickAmount}',
+    //                       style: AppTextStyles.caption.copyWith(
+    //                         color: AppColors.success,
+    //                         fontWeight: FontWeight.bold,
+    //                       ),
+    //                     ),
+    //                   ),
+    //                   contentPadding: EdgeInsets.zero,
+    //                 );
+    //               },
+    //             ),
+    //           ),
+    //           const SizedBox(height: AppSpacing.lg),
+    //           Container(
+    //             padding: const EdgeInsets.all(AppSpacing.md),
+    //             decoration: BoxDecoration(
+    //               color: AppColors.info.withOpacity(0.1),
+    //               borderRadius: BorderRadius.circular(AppBorderRadius.md),
+    //             ),
+    //             child: Row(
+    //               children: [
+    //                 Icon(Icons.info_outline, color: AppColors.info, size: 20),
+    //                 const SizedBox(width: AppSpacing.md),
+    //                 Expanded(
+    //                   child: Text(
+    //                     widget.role == "picker" ?
+    //                     'Total items to pick: $totalPickedItem':'Total items to fill: $totalPickedItem',
+    //                     style: AppTextStyles.body2.copyWith(
+    //                       color: AppColors.info,
+    //                       fontWeight: FontWeight.w600,
+    //                     ),
+    //                   ),
+    //                 ),
+    //               ],
+    //             ),
+    //           ),
+    //         ],
+    //       ),
+    //     ),
+    //     actions: [
+    //       TextButton(
+    //         onPressed: () => Navigator.pop(context),
+    //         child: const Text('Cancel'),
+    //       ),
+    //       ElevatedButton.icon(
+    //
+    //         onPressed: () {
+    //           Provider.of<PickerDataProvider>(context,listen: false).savePickerMachineProductData(widget.role,widget.machineDetails[0]["pickListId"]);
+    //           Navigator.pop(context);
+    //           Navigator.pop(context);
+    //         },
+    //         icon: const Icon(Icons.check),
+    //         label: const Text('Confirm'),
+    //         style: ElevatedButton.styleFrom(
+    //           backgroundColor:  AppColors.primary.withOpacity(0.2),
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    // );
   }
 
 }

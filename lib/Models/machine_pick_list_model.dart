@@ -7,12 +7,14 @@ class MachinePickListModel {
   final int id;
   final int pick_list_id;
   final String name;
+  String state;
   final List pickListIds;
 
   MachinePickListModel({
     required this.id,
     required this.pick_list_id,
     required this.name,
+    required this.state,
     required this.pickListIds,
   });
 
@@ -29,6 +31,7 @@ class MachinePickListModel {
       id: xmlRpcData['machine_id'][0]  as int,
       pick_list_id: xmlRpcData['id']  as int,
       name: xmlRpcData['machine_id'][1] as String,
+      state: xmlRpcData['state'] as String,
       pickListIds: xmlRpcData['pick_list_ids'] as List,
     );
   }

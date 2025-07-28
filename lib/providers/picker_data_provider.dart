@@ -12,7 +12,7 @@ class PickerDataProvider with ChangeNotifier {
   List<PickerMachineProductModel> pickerMachineProductDetails = [];
 
   Future fetchMachinePickList({required String role}) async {
-    print("formattedDate  $role");
+    print("formattedDate  $formattedDate");
 
     try {
       final pref = await SharedPreferences.getInstance();
@@ -24,8 +24,8 @@ class PickerDataProvider with ChangeNotifier {
       // Second API call - get machine data
       final filtered = [
         [
-          ['planned_date', '=', formattedDate],
-          ['state', '=', role == 'picker' ? 'draft' : 'picked'],
+          ['planned_date', '=', "2025-07-27"],
+          // ['state', '=', role == 'picker' ? 'draft' : 'picked'],
         ],
       ];
       final machinePickList = await xml_rpc.call(
@@ -39,13 +39,12 @@ class PickerDataProvider with ChangeNotifier {
           'search_read',
           filtered,
           {
-            'fields': ['id', 'machine_id', 'pick_list_ids',],
+            'fields': ['id', 'machine_id', 'pick_list_ids','state'],
           },
         ],
       );
 
       print("Machine Pick List: $machinePickList");
-
       pickerMachineDetails =
           machinePickList
               .cast<Map<String, dynamic>>()
