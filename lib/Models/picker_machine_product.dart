@@ -7,6 +7,7 @@ class PickerMachineProductModel {
   final int id;
   final int productId;
   final String displayName;
+  final String machineName;
   final int pickAmount;
   bool isPicked;
   bool isFilled;
@@ -15,6 +16,7 @@ class PickerMachineProductModel {
     required this.id,
     required this.productId,
     required this.displayName,
+    required this.machineName,
     required this.pickAmount,
     required this.isPicked,
     required this.isFilled,
@@ -25,6 +27,7 @@ class PickerMachineProductModel {
         id: xmlRpcData["id"],
         productId: xmlRpcData["product_id"][0],
         displayName :xmlRpcData["product_id"][1],
+        machineName :xmlRpcData["machine_id"][1],
         pickAmount: xmlRpcData["pick_amount"],
         isPicked: xmlRpcData["picked"],
        isFilled: xmlRpcData["filled"],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:provider/provider.dart';
+import 'package:staff_mangement/Models/picker_service_run_model.dart';
+import 'package:staff_mangement/screens/picker_filler_section.dart';
 import 'package:staff_mangement/screens/picker_machine_product_screen.dart';
 
 import '../Models/machine_pick_list_model.dart';
@@ -9,35 +11,29 @@ import '../constants/theme.dart';
 import '../providers/picker_data_provider.dart';
 import '../reusebleWidgets/app_bar_section.dart';
 import '../widgets/picker_filler_machine_cart.dart';
-import '../widgets/picker_operation_dragable_form_sheet.dart';
+import '../widgets/picker_service_run_cart.dart';
 import '../widgets/profile_section_drawer.dart';
 
-class PickerFillerScreen extends StatefulWidget {
+class PickerServiceRunScreen extends StatefulWidget {
   final String role;
-  final int service_run_id;
-  final String service_run_name;
-  const PickerFillerScreen({super.key,required this.role,this.service_run_id = 0,this.service_run_name =""});
+  const PickerServiceRunScreen({super.key,required this.role});
 
   @override
-  State<PickerFillerScreen> createState() => _PickerFillerScreenState();
+  State<PickerServiceRunScreen> createState() => _PickerServiceRunScreenState();
 }
 
-class _PickerFillerScreenState extends State<PickerFillerScreen>
+class _PickerServiceRunScreenState extends State<PickerServiceRunScreen>
     with TickerProviderStateMixin {
-  List<MachinePickListModel> _machines = [];
+  List<PickerServiceRunModel> _serviceRuns = [];
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedFilter = 'All';
-
-  // Selection mode variables
-  List<int> _selectedMachineIds = [];
-  bool _isSelectionMode = false;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   Key _screenKey = UniqueKey();
 
-  final List<String> _filterOptions = ['All', 'Active', 'Maintenance', 'Offline'];
+  final List<String> _filterOptions = ['All', 'Pending', 'Completed', 'In Progress'];
 
   @override
   void initState() {
@@ -67,93 +63,12 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
     super.dispose();
   }
 
-  // Selection mode methods
-  void _handleLongPress(MachinePickListModel machine) {
-    if(widget.role  != "picker"){
-      return;
-    }
-    setState(() {
-      if (!_isSelectionMode) {
-        print("sdsds");
-        _isSelectionMode = true;
-          _selectedMachineIds.add(machine.pick_list_id);
-      } else {
-        _toggleSelection(machine.pick_list_id);
-      }
-    });
-  }
-
-  void _handleTap(MachinePickListModel machine) {
-    if (_isSelectionMode) {
-      print("sdsddaaaa");
-      if(machine.state !="picked"){
-        _toggleSelection(machine.pick_list_id);
-      }
-    } else {
-      print("eeeeee");
-
-      _navigateToMachineProducts(machine);
-    }
-  }
-
-  void _toggleSelection(int machineId) {
-    setState(() {
-      if (_selectedMachineIds.contains(machineId)) {
-        _selectedMachineIds.remove(machineId);
-        if (_selectedMachineIds.isEmpty) {
-          _isSelectionMode = false;
-        }
-      } else {
-        _selectedMachineIds.add(machineId);
-      }
-    });
-  }
-
-  void _clearSelection() {
-    setState(() {
-      _selectedMachineIds.clear();
-      _isSelectionMode = false;
-    });
-  }
-
-   _handleViewSelected() {
-    // Filter selected machines
-    List<MachinePickListModel> selectedMachines = _machines
-        .where((machine) => _selectedMachineIds.contains(machine.pick_list_id))
-        .toList();
-
-
-    // Extract details only from selected machines
-    List<int> selectedMachinesIds = selectedMachines
-        .expand((m) => m.pickListIds)
-        .cast<int>()
-        .toList();
-    List<int> pickListIds = selectedMachines.map((m) => m.pick_list_id).toList();
-    String combinedNames = selectedMachines.map((m) => m.name).join(" | ");
-    String? state = selectedMachines.isNotEmpty ? selectedMachines.first.state : null;
-
-    List<dynamic> machineDetails = [
-      {
-        "pickListId": pickListIds,
-        "name": combinedNames,
-        "state": state,
-      }
-    ];
-
-    print('Machine Details: hh${selectedMachinesIds.length}');
-    print('Machine Details: $machineDetails');
-     _navigateToListMachineProducts(selectedMachinesIds, machineDetails);
-  }
-
-
-
-
   Future<void> _loadMachineData() async {
     try {
-      await Provider.of<PickerDataProvider>(context, listen: false).fetchMachinePickList(role:widget.role,serviceRunId:widget.service_run_id);
+      await Provider.of<PickerDataProvider>(context, listen: false).fetchServiceRunList();
       setState(() => _isLoading = true);
       setState(() {
-        _machines =  Provider.of<PickerDataProvider>(context,listen: false).pickerMachineDetails;
+        _serviceRuns =  Provider.of<PickerDataProvider>(context,listen: false).pickerServiceRunDetails;
         _isLoading = false;
       });
 
@@ -164,9 +79,12 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
     }
   }
 
-  List<MachinePickListModel> get _filteredMachines {
+
+
+  List<PickerServiceRunModel> get _filteredServiceRuns {
     print("sdsdsd444444");
-    List<MachinePickListModel> filtered = _machines;
+    List<PickerServiceRunModel> filtered = _serviceRuns;
+
 
     print("√,,,.>>$filtered");
 
@@ -202,32 +120,12 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
       backgroundColor: AppColors.background,
       appBar: appBarSection(
         icon: Icons.analytics_outlined,
-        headerTitle1: _isSelectionMode
-            ? '${_selectedMachineIds.length} selected'
-            : widget.role == "picker" ? '${widget.service_run_name}\nMachine Operations' : 'Filler Operations',
-        headerTitle2: _isSelectionMode
-            ? 'Tap to select/deselect machines'
-            : 'Manage and monitor your vending machines',
-        showNotification: !_isSelectionMode,
-        // Add close button for selection mode
-        actions: _isSelectionMode ? [
-          IconButton(
-            icon: Icon(Icons.close),
-            onPressed: _clearSelection,
-          ),
-        ] : null,
+        headerTitle1: widget.role == "picker" ? 'Service Run Operations' : 'Filler Operations',
+        headerTitle2: 'Manage and monitor your vending machines',
+        showNotification: true,
       ),
-      endDrawer: _isSelectionMode ? null : const ProfileSectionDrawer(),
+      endDrawer: const ProfileSectionDrawer(),
       body: _isLoading ? _buildLoadingState() : _buildContent(),
-      floatingActionButton: _selectedMachineIds.isNotEmpty
-          ? FloatingActionButton.extended(
-        onPressed: _handleViewSelected,
-        icon: const Icon(Icons.visibility),
-        label: const Text('View'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      )
-          : null,
     );
   }
 
@@ -257,55 +155,9 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
       opacity: _fadeAnimation,
       child: Column(
         children: [
-          if (!_isSelectionMode) _buildSearchAndFilter(),
+          _buildSearchAndFilter(),
           Expanded(child: _buildMachineList()),
-          if (widget.role == "picker" && !_isSelectionMode) _buildBottomActions()
-          else SizedBox()
         ],
-      ),
-    );
-  }
-
-  Widget _buildBottomActions() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              flex: 2,
-              child: ElevatedButton.icon(
-                onPressed: (){
-                  PickerOperationConfirmationFormSheet().openDraggableSheet(
-                    context,
-                    role: "picker",
-                    onConfirm: (formData) {
-                      // Handle the picker confirmation data
-                      print('Picker form submitted: $formData');
-                    },
-                  );
-                },
-                icon: const Icon(Icons.shopping_cart),
-                label: Text('Confirm Operation',),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:  AppColors.primary.withOpacity(0.2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -355,7 +207,8 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _filterOptions.map((filter) {
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: _filterOptions.map((filter){
                 final isSelected = _selectedFilter == filter;
                 return Padding(
                   padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -382,11 +235,10 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
       ),
     );
   }
-
   Widget _buildMachineList() {
-    final filteredMachines = _filteredMachines;
+    final filteredServiceRuns = _filteredServiceRuns;
 
-    if (filteredMachines.isEmpty) {
+    if (filteredServiceRuns.isEmpty) {
       return _buildEmptyState();
     }
 
@@ -395,11 +247,8 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
       color: AppColors.primary,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        itemCount: filteredMachines.length,
+        itemCount: filteredServiceRuns.length,
         itemBuilder: (context, index) {
-          final machine = filteredMachines[index];
-          final isSelected = _selectedMachineIds.contains(machine.pick_list_id);
-
           return TweenAnimationBuilder<double>(
             duration: Duration(milliseconds: 200 + (index * 50)),
             tween: Tween(begin: 0.0, end: 1.0),
@@ -410,13 +259,10 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
                   opacity: value,
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: PickerFillerMatchingCart(
-                      role: widget.role,
-                      machine: machine,
-                      onTap: () => _handleTap(machine),
-                      onLongPress: () =>  _handleLongPress(machine),
-                      isSelected: isSelected,
-                      isSelectionMode: _isSelectionMode,
+                    child: PickerServiceRunCart(
+                      role:widget.role,
+                      serviceRun: filteredServiceRuns[index],
+                      onTap: () => _navigateToMachineProducts(filteredServiceRuns[index]),
                     ),
                   ),
                 ),
@@ -502,24 +348,25 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
     );
   }
 
-  Future<void> _navigateToMachineProducts(MachinePickListModel machine) async {
+  Future<void> _navigateToMachineProducts(PickerServiceRunModel serviceRun) async {
     try {
       if (mounted) {
-        List<dynamic>  machineDetails = [
-            {
-              "pickListId": machine.pick_list_id,
-              "name": machine.name,
-              "state": machine.state,
-            }
-          ];
+        // List<dynamic> machineDetails = [
+        //   {
+        //     "pickListId": machine.pick_list_id,
+        //     "name": machine.name,
+        //     "state": machine.state,
+        //   }
+        // ];
+
         await Navigator.push(
           context,
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
-                PickerFillerMachineProductScreen(
+                PickerFillerScreen(
                   role: widget.role,
-                  machineDetails: machineDetails,
-                  machineProductIdsList: machine.pickListIds,
+                  service_run_id: serviceRun.id,
+                  service_run_name: serviceRun.name,
                 ),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return SlideTransition(
@@ -543,38 +390,5 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
       _showErrorMessage('Failed to load products: ${e.toString()}');
     }
   }
-  Future<void> _navigateToListMachineProducts(selectedMachinesPickListIds,List<dynamic> machineDetails) async {
-    try {
-      if (mounted) {
-        await Navigator.push(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                PickerFillerMachineProductScreen(
-                  role: widget.role,
-                  machineDetails: machineDetails,
-                  machineProductIdsList: selectedMachinesPickListIds,
-                ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(1.0, 0.0),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeInOut,
-                )),
-                child: child,
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 300),
-          ),
-        );
-        await _loadMachineData();
-      }
-    } catch (e) {
-      if (mounted) Navigator.pop(context);
-      _showErrorMessage('Failed to load products: ${e.toString()}');
-    }
-  }
+
 }

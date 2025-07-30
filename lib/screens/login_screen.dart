@@ -67,7 +67,9 @@ class _SimpleLoginScreenState extends State<SimpleLoginScreen>
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+    print("sdsdddd");
+    // if (!_formKey.currentState!.validate()) return;
+    print("sdsdsaaaaaa");
 
     setState(() {
       _isLoading = true;
@@ -81,6 +83,7 @@ class _SimpleLoginScreenState extends State<SimpleLoginScreen>
         _passwordController.text,
       );
 
+      print("userId,,,,<$userId");
       if (userId > 0) {
         _showSuccessAndNavigate();
       } else {
@@ -98,6 +101,7 @@ class _SimpleLoginScreenState extends State<SimpleLoginScreen>
   }
 
   Future<int> _performLogin(String dbName, String email, String password) async {
+    print("sdssdsd");
     try {
       final userId = await xml_rpc.call(
         Uri.parse('${baseUrl}xmlrpc/2/common'),

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:staff_mangement/screens/picker_filler_section.dart';
+import 'package:staff_mangement/screens/picker_service_run.dart';
 import 'package:staff_mangement/screens/staff_screen.dart';
 import '../providers/notification_state_provider.dart';
 import '../reusebleWidgets/app_bar_section.dart';
@@ -425,7 +426,8 @@ class _DashboardState extends State<Dashboard>
         screen = const StaffScreen();
         break;
       case '/picker':
-        screen =  PickerFillerScreen(role:"picker");
+        screen =  PickerServiceRunScreen(role:"picker");
+        // screen =  PickerFillerScreen(role:"picker");
         break;
         case '/filer':
         screen =  PickerFillerScreen(role:"filler");

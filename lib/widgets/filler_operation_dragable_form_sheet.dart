@@ -1,4 +1,6 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:staff_mangement/constants/padding.dart';
 import '../constants/colors.dart';
 import '../constants/theme.dart';
@@ -97,21 +99,22 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
   String? _selectedCoinsOption;
   String? _selectedNotesOption;
 
-  List<String> pictureDescDetails = [
-    "1.Tray 1 pic - for stock check",
-    "2.Tray 2 pic - for stock check",
-    "3.Tray 3 pic - for stock check",
-    "4.Tray 4 pic - for stock check",
-    "5.Tray 5 pic - for stock check",
-    "6.Tray 6 pic - for stock check",
-    "7.Door open front pick to see full machine products",
-    "8.Drop box pic",
-    "9.Cash bag pic",
-    "10.Coin Mech pic (press door switch and get the pic)",
-    "11.Coin mech change on display pic",
-    "12.Machine pic just before leaving after machine is locked",
-    "13.Spoiled product picture"
+  List<PictureDescriptionDetail> pictureDescDetails = [
+    PictureDescriptionDetail(name: "1. Tray 1 pic - for stock check"),
+    PictureDescriptionDetail(name: "2. Tray 2 pic - for stock check"),
+    PictureDescriptionDetail(name: "3. Tray 3 pic - for stock check"),
+    PictureDescriptionDetail(name: "4. Tray 4 pic - for stock check"),
+    PictureDescriptionDetail(name: "5. Tray 5 pic - for stock check"),
+    PictureDescriptionDetail(name: "6. Tray 6 pic - for stock check"),
+    PictureDescriptionDetail(name: "7. Door open front pic to see full machine products"),
+    PictureDescriptionDetail(name: "8. Drop box pic"),
+    PictureDescriptionDetail(name: "9. Cash bag pic"),
+    PictureDescriptionDetail(name: "10. Coin Mech pic (press door switch and get the pic)"),
+    PictureDescriptionDetail(name: "11. Coin mech change on display pic"),
+    PictureDescriptionDetail(name: "12. Machine pic just before leaving after machine is locked"),
+    PictureDescriptionDetail(name: "13. Spoiled product picture"),
   ];
+
 
   @override
   void initState() {
@@ -136,6 +139,8 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     _cashBagIdController.dispose();
     super.dispose();
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +171,7 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Confirm Filler Operation',
+                      'Confirmation Form',
                       style: AppTextStyles.heading2.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -335,8 +340,8 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                 SizedBox(height: 16),
 
                 // File Upload Section
-                _buildFileUploadSection(),
-                SizedBox(height: 32),
+                SizedBox(
+                    child: _buildFileUploadSection()),
               ],
             ),
           ),
@@ -351,16 +356,6 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
           ),
           child: Row(
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    side: BorderSide(color: AppColors.primary),
-                  ),
-                  child: Text('Cancel'),
-                ),
-              ),
               SizedBox(width: 16),
               Expanded(
                 flex: 2,
@@ -491,6 +486,68 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
       ],
     );
   }
+
+
+  Widget _buildFUploadField(
+      TextEditingController controller, {
+        bool required = false,
+        String? hint,
+        IconData? icon,
+        int maxLines = 1,
+        TextInputType? keyboardType,
+        bool enabled = true,
+        required VoidCallback onIconPressed,
+      }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: enabled ? onIconPressed : null,
+          child: AbsorbPointer(
+            child: TextFormField(
+              controller: controller,
+              readOnly: true,
+              enabled: enabled,
+              maxLines: maxLines,
+              keyboardType: keyboardType,
+              validator: (required)
+                  ? (value) {
+                if (value == null || value.isEmpty) {
+                  return 'This field is required';
+                }
+                return null;
+              }
+                  : null,
+              decoration: InputDecoration(
+                hintText: hint,
+                prefixIcon: icon != null ? Icon(icon, color: AppColors.primary) : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+              style: TextStyle(
+                color: enabled ? AppColors.onSurface : AppColors.disabled,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+
 
   Widget _buildDateField() {
     return Column(
@@ -639,51 +696,65 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'PLEASE ATTACH BELOC PICTURES*',
+          'PLEASE ATTACH BELOW PICTURES*',
           style: AppTextStyles.subtitle2.copyWith(fontWeight: FontWeight.w600),
         ),
+        Divider(),
         SizedBox(height: 8),
-        Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: [
-              SizedBox(
-                height:100,
-                child: ListView.builder(
-                shrinkWrap: true,
-                scrollDirection: Axis.vertical,
-                itemCount: pictureDescDetails.length,
-                itemBuilder: (context, index) {
-                  return Text(pictureDescDetails[index]);
-                }),
+        Column(
+          children: pictureDescDetails.map((detail) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: _buildFUploadField(
+                detail.controller,
+                hint: detail.name,
+                required: true,
+                icon: Icons.cloud_upload,
+                  onIconPressed: () async {
+                    final source = await showDialog<ImageSource>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Upload Option'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              leading: Icon(Icons.camera_alt),
+                              title: Text('Take a Picture'),
+                              onTap: () => Navigator.pop(context, ImageSource.camera),
+                            ),
+                            ListTile(
+                              leading: Icon(Icons.upload_file),
+                              title: Text('Pick a File'),
+                              onTap: () => Navigator.pop(context, null),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+
+                    if (source != null) {
+                      // Camera selected
+                      final XFile? photo = await ImagePicker().pickImage(source: source);
+                      if (photo != null) {
+                        detail.controller.text = photo.name;
+                        // Save the path or file
+                      }
+                    } else {
+                      // File picker selected
+                      FilePickerResult? result = await FilePicker.platform.pickFiles();
+                      if (result != null) {
+                        detail.controller.text = result.files.single.name;
+                        // Save the path or file
+                      }
+                    }
+                  }
+
               ),
-              SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                height: 100,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.cloud_upload, size: 32, color: AppColors.primary),
-                    SizedBox(height: 8),
-                    Text(
-                      'Drop your files here to upload',
-                      style: AppTextStyles.body2.copyWith(color: AppColors.primary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            );
+          }).toList(),
         ),
+
       ],
     );
   }
@@ -718,4 +789,12 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
       Navigator.pop(context);
     }
   }
+}
+
+class PictureDescriptionDetail {
+  final String name;
+  final TextEditingController controller;
+
+  PictureDescriptionDetail({required this.name})
+      : controller = TextEditingController();
 }

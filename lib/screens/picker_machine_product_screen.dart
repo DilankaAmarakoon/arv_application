@@ -7,8 +7,9 @@ import '../constants/theme.dart';
 import '../Models/machine_pick_list_model.dart';
 import '../Models/picker_machine_product.dart';
 import '../providers/picker_data_provider.dart';
+import '../reusebleWidgets/showDialog.dart';
 import '../widgets/filler_operation_dragable_form_sheet.dart';
-import '../widgets/picker_product_cart.dart';
+import '../widgets/picker_filler_product_cart.dart';
 
 class PickerFillerMachineProductScreen extends StatefulWidget {
   final String role;
@@ -119,6 +120,7 @@ class _PickerFillerMachineProductScreenState
   }
 
   Future<void> _loadMachineData() async {
+    print("dffff.....${widget.machineProductIdsList}");
     await Provider.of<PickerDataProvider>(context, listen: false).fetchPickerMachineProductData(widget.role,widget.machineProductIdsList);
     try {
       setState(() => _isLoading = true);
@@ -127,6 +129,7 @@ class _PickerFillerMachineProductScreenState
         _isLoading = false;
       });
       for (final product in productsList) {
+        print("5677.>${product.isPicked}");
         widget.role == "picker" ?
         _selectedProducts[product.id] = product.isPicked:  _selectedProducts[product.id] = product.isFilled;
         _productQuantities[product.id] = 0;
@@ -234,10 +237,18 @@ class _PickerFillerMachineProductScreenState
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),
                   child: ProfessionalProductCard(
                     role:widget.role,
+                    bulkView: widget.machineDetails[0]["pickListId"] is List ?  true:false,
                     product: product,
                     isSelected: _selectedProducts[product.id] ?? false,
                     quantity: _productQuantities[product.id] ?? 0,
                     onSelectionChanged: () {
+                      print("hjkk.>>${widget.machineDetails[0]['state']}");
+                      if(widget.role == "picker" && (widget.machineDetails[0]['state'] == "picked" || widget.machineDetails[0]['state'] == "filled")){
+                        return;
+                      }
+                      if( widget.role != "picker" && widget.machineDetails[0]['state'] == "filled"){
+                        return;
+                      }
                       print("sdsdsdsd999");
                       setState(() {
                         _selectedProducts[product.id] =  _selectedProducts[product.id]! ? false : true;
@@ -285,24 +296,17 @@ class _PickerFillerMachineProductScreenState
       child: SafeArea(
         child: Row(
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _selectedCount > 0 ? _clearAllSelections : null,
-                icon: const Icon(Icons.clear_all),
-                label: const Text('Clear All'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: BorderSide(color: AppColors.primary),
-                ),
-              ),
-            ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               flex: 2,
               child: ElevatedButton.icon(
-                onPressed: hasValidSelection ? _confirmSelection : null,
+                onPressed: widget.role == "picker" &&  (widget.machineDetails[0]['state'] == "picked"|| widget.machineDetails[0]['state'] == "filled")
+                    ? null :  widget.role != "picker" &&  widget.machineDetails[0]['state'] == "filled" ? null
+                    : hasValidSelection
+                    ? _confirmSelection
+                    : null,
                 icon: const Icon(Icons.shopping_cart),
-                label: Text('Confirm Selection $_selectedCount',),
+                label: Text('Confirm',),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:  AppColors.primary.withOpacity(0.2),
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -390,43 +394,86 @@ class _PickerFillerMachineProductScreenState
     });
   }
 
-  void _handleFormSubmission(Map<String, dynamic> formData, List selectedProducts) {
+  void _handleSubmission(role, List selectedProducts) async {
     // Process the form data and selected products
-    print('Form Data: $formData');
     print('Selected Products: $selectedProducts');
+    try {
+      // Save the picker machine product data
+      List<int> pickListIds;
 
-    // Your existing logic
-    Provider.of<PickerDataProvider>(context, listen: false)
-        .savePickerMachineProductData(widget.role, widget.machineDetails[0]["pickListId"]);
-    final list = Provider.of<PickerDataProvider>(context,listen: false).pickerMachineDetails;
-    for(MachinePickListModel item in list){
-      if(item.pick_list_id == widget.machineDetails[0]["pickListId"]){
-        item.state = "picked";
-     }
+      if (widget.machineDetails[0]["pickListId"] is List) {
+        pickListIds = widget.machineDetails[0]["pickListId"];
+      } else {
+        pickListIds = [widget.machineDetails[0]["pickListId"]];
+      }
+      print("dffff.>>${widget.machineDetails[0]["pickListId"]}");
+      bool success = await Provider.of<PickerDataProvider>(context, listen: false)
+          .savePickerMachineProductData(widget.role, pickListIds);
+      print("dfffwwwwf");
+
+
+      if (success) {
+        // Update the local state
+        // final provider = Provider.of<PickerDataProvider>(context, listen: false);
+        // final list = provider.pickerMachineDetails;
+        //
+        // for (MachinePickListModel item in list) {
+        //   if (item.pick_list_id == widget.machineDetails[0]["pickListId"]) {
+        //     item.state = "picked";
+        //     break;
+        //   }
+        // }
+
+        // Notify listeners about the change
+        Navigator.pop(context, true);
+        Provider.of<PickerDataProvider>(context, listen: false).updateMachinePickListState(widget.machineDetails[0]["pickListId"], "picked");
+        // provider.notifyListeners();
+
+        // Navigate back with success result
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Operation completed successfully!'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      } else {
+        // Handle error case
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error in _handleFormSubmission: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('An error occurred. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-
-    // Navigate back
-    Navigator.pop(context);
-
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Operation completed successfully!'),
-          ],
-        ),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
   }
   void _confirmSelection() {
+    print("tyuuuu..>${productsList.length}");
+    print("tyuuuu..eee>$_selectedCount");
+    if(widget.role != "picker" && productsList.length != _selectedCount){
+        showSuccessMessage(context,"Please fill all products before proceeding");
+        return;
+    }
     totalPickedItem = 0;
     final selectedProducts =productsList.where(
           (product) => _selectedProducts[product.id] == true).toList();
@@ -437,16 +484,18 @@ class _PickerFillerMachineProductScreenState
     }
     if (selectedProducts.isEmpty) return;
 
-    FillerOperationConfirmationFormSheet().openDraggableSheet(
+    if(widget.role != "picker"){FillerOperationConfirmationFormSheet().openDraggableSheet(
       context,
       selectedProducts: selectedProducts,
       totalPickedItem: totalPickedItem,
       role: widget.role,
       onConfirm: (formData) {
         // Handle form submission
-        _handleFormSubmission(formData, selectedProducts);
-      },
-    );
+        _handleSubmission(widget.role, selectedProducts);
+      });
+    }else{
+      _handleSubmission(widget.role, selectedProducts);
+    }
 
     // showDialog(
     //   context: context,

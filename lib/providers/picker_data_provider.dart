@@ -3,15 +3,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:staff_mangement/Models/picker_machine_product.dart';
 import 'package:xml_rpc/client_c.dart' as xml_rpc;
 import '../Models/machine_pick_list_model.dart';
+import '../Models/picker_service_run_model.dart';
 import '../static_data.dart';
 import 'package:intl/intl.dart';
 
 class PickerDataProvider with ChangeNotifier {
   String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  List<PickerServiceRunModel> pickerServiceRunDetails = [];
   List<MachinePickListModel> pickerMachineDetails = [];
   List<PickerMachineProductModel> pickerMachineProductDetails = [];
 
-  Future fetchMachinePickList({required String role}) async {
+  Future fetchServiceRunList() async {
     print("formattedDate  $formattedDate");
 
     try {
@@ -21,11 +23,58 @@ class PickerDataProvider with ChangeNotifier {
 
       if (userId == null || password == null) return [];
 
-      // Second API call - get machine data
-      final filtered = [
+      final pickerServiceRun = await xml_rpc.call(
+        Uri.parse("$baseUrl/xmlrpc/2/object"),
+        'execute_kw',
         [
-          ['planned_date', '=', "2025-07-27"],
-          // ['state', '=', role == 'picker' ? 'draft' : 'picked'],
+          dbName,
+          userId,
+          password,
+          'service.run',
+          'search_read',
+          [
+            [
+              ['planned_date','=', formattedDate]
+            ]
+          ],
+          {
+            'fields': ['id', 'name', 'route_id','machine_ids','machine_count'],
+          },
+        ],
+      );
+
+      print("pickerServiceRun: $pickerServiceRun");
+      pickerServiceRunDetails =
+          pickerServiceRun
+              .cast<Map<String, dynamic>>()
+              .map((data) => PickerServiceRunModel.fromXmlRpc(data))
+              .toList()
+              .cast<PickerServiceRunModel>();
+
+      return pickerServiceRunDetails;
+    } catch (e) {
+      print("❌ Error in fetchMachinePickList: $e");
+      return [];
+    }
+  }
+  Future fetchMachinePickList({required String role,required  int serviceRunId}) async {
+    print("formattedDate  $formattedDate");
+    try {
+      final pref = await SharedPreferences.getInstance();
+      final userId = pref.getInt("user_Id");
+      final password = pref.getString("password");
+
+      if (userId == null || password == null) return [];
+
+      // Second API call - get machine data
+      final filtered =  role == 'picker' ?[
+        [
+          ['service_run_id','=',serviceRunId]
+        ],
+      ]:[
+        [
+          ['planned_date', '=', formattedDate],
+          ['state', '!=', 'draft'],
         ],
       ];
       final machinePickList = await xml_rpc.call(
@@ -39,12 +88,12 @@ class PickerDataProvider with ChangeNotifier {
           'search_read',
           filtered,
           {
-            'fields': ['id', 'machine_id', 'pick_list_ids','state'],
+            'fields': ['id', 'machine_id', 'pick_list_ids','state','planned_date'],
           },
         ],
       );
 
-      print("Machine Pick List: $machinePickList");
+      print("Machine Pick List new: $machinePickList");
       pickerMachineDetails =
           machinePickList
               .cast<Map<String, dynamic>>()
@@ -65,10 +114,14 @@ class PickerDataProvider with ChangeNotifier {
       final userId = pref.getInt("user_Id");
       final password = pref.getString("password");
       if (userId == null || password == null) return [];
-      final filtered = [
+      final filtered =  role == 'picker' ?[
         [
           ['id', 'in', machineProductIdsList],
-          ['picked', '=', role == "picker" ? false: true],
+        ],
+      ]:[
+        [
+          ['id', 'in', machineProductIdsList],
+          ['picked', '=', true],
         ],
       ];
       final machineProductData = await xml_rpc.call(
@@ -82,12 +135,12 @@ class PickerDataProvider with ChangeNotifier {
           'search_read',
           filtered,
           {
-            'fields': ['id', 'product_id', 'pick_amount', 'picked', 'filled'],
+            'fields': ['id', 'product_id', 'pick_amount', 'picked', 'filled','machine_id'],
           },
         ],
       );
 
-      print("machineProductDatamm.>${machineProductData}");
+      print("machineProductDatamachineProductData,,,<<$machineProductData");
 
       pickerMachineProductDetails =
           machineProductData
@@ -105,7 +158,9 @@ class PickerDataProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> savePickerMachineProductData(String role, int pickListId) async {
+  Future<bool> savePickerMachineProductData(String role, List<int> pickListId) async {
+
+    print("hjj....>${pickListId}");
     List<int> pickedAndDFillsIds = pickerMachineProductDetails
         .where((item) =>
     role == "picker" ? item.isPicked == true : item.isFilled == true)
@@ -154,7 +209,7 @@ class PickerDataProvider with ChangeNotifier {
           'machine.pick.list',
           'write',
           [
-            [pickListId],
+            pickListId,
             role == "picker"
                 ? {"state": "picked"}
                 : {"state": "filled"},
@@ -167,6 +222,16 @@ class PickerDataProvider with ChangeNotifier {
       print("❌ Error in savePickerMachineProductData: $e");
       return false;
     }
+  }
+
+  void updateMachinePickListState(int pickListId, String newState) {
+    for (MachinePickListModel item in pickerMachineDetails) {
+      if (item.pick_list_id == pickListId) {
+        item.state = newState;
+        break;
+      }
+    }
+    notifyListeners(); // This will update all listening widgets
   }
 
 }

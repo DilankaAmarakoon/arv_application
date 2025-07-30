@@ -6,6 +6,10 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Staff Mangement</string>
+	<key>NSCameraUsageDescription</key>
+    <string>We need camera access to take photos</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>We need access to your photo library</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
