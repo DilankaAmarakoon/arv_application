@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../Models/machine_pick_list_model.dart';
 import '../constants/theme.dart';
+import 'basket_number_popup.dart';
 
 class PickerFillerMatchingCart extends StatefulWidget {
   final String role;
   final MachinePickListModel machine;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onDoublePress;
   final bool isSelected;
   final bool isSelectionMode;
 
@@ -16,6 +19,7 @@ class PickerFillerMatchingCart extends StatefulWidget {
     required this.machine,
     required this.onTap,
     this.onLongPress,
+    this.onDoublePress,
     this.isSelected = false,
     this.isSelectionMode = false,
   });
@@ -28,6 +32,9 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+
+  // Added for basket number functionality
+  List<String> basketNumberList = [];
 
   @override
   void initState() {
@@ -49,6 +56,8 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
       curve: Curves.easeInOut,
     ));
   }
+
+  // Added basket number dialog handler
 
   @override
   void dispose() {
@@ -75,6 +84,7 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
         child: InkWell(
           onTap: widget.onTap,
           onLongPress: widget.onLongPress,
+          onDoubleTap: widget.onDoublePress,
           onTapDown: (_) => _animationController.forward(),
           onTapUp: (_) => _animationController.reverse(),
           onTapCancel: () => _animationController.reverse(),
@@ -197,6 +207,7 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
     );
   }
 
+  // Updated to include basket number functionality
   Widget _buildMachineInfo() {
     return Padding(
       padding: const EdgeInsets.only(right: AppSpacing.lg),
@@ -216,9 +227,52 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: AppSpacing.xs),
-          if (widget.machine.name.isNotEmpty) ...[
-            // Additional machine info can be added here if needed
-          ],
+          if(widget.machine.basketNumbers != "")Row(
+            children: [
+              Icon(
+                Icons.shopping_basket,
+                size: 16,
+                color: AppColors.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  widget.machine.basketNumbers ,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          // Instruction label
+          if(widget.role == "picker"  && !widget.isSelectionMode)Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.2),
+                width: 0.8,
+              ),
+            ),
+            child: Text(
+              'Tap to doubleTap scan basket number',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.primary.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+                fontSize: 9,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+          // Basket number badges
         ],
       ),
     );
@@ -286,7 +340,7 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
         ),
         const SizedBox(height: 2),
         Text(
-          isPicked ? 'Picked' : isFilled ? 'Filled' : 'View',
+          isPicked ? 'Picked' : isFilled ? 'Filled' : widget.role == "picker" ? 'Pick' : 'Fill',
           style: AppTextStyles.caption.copyWith(
             color: isPicked || isFilled ? Colors.green : AppColors.primary,
             fontWeight: FontWeight.w600,
@@ -294,114 +348,6 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
           ),
         ),
       ],
-    );
-  }
-}
-
-// Parent widget example for managing selection state
-class CartListPage extends StatefulWidget {
-  const CartListPage({super.key});
-
-  @override
-  State<CartListPage> createState() => _CartListPageState();
-}
-
-class _CartListPageState extends State<CartListPage> {
-  List<String> selectedCartIds = [];
-  bool isSelectionMode = false;
-
-  void _handleLongPress(String cartId) {
-    setState(() {
-      if (!isSelectionMode) {
-        isSelectionMode = true;
-        selectedCartIds.add(cartId);
-      } else {
-        _toggleSelection(cartId);
-      }
-    });
-  }
-
-  void _handleTap(String cartId) {
-    if (isSelectionMode) {
-      _toggleSelection(cartId);
-    } else {
-      // Normal tap behavior
-      print('Cart tapped: $cartId');
-    }
-  }
-
-  void _toggleSelection(String cartId) {
-    setState(() {
-      if (selectedCartIds.contains(cartId)) {
-        selectedCartIds.remove(cartId);
-        if (selectedCartIds.isEmpty) {
-          isSelectionMode = false;
-        }
-      } else {
-        selectedCartIds.add(cartId);
-      }
-    });
-  }
-
-  void _clearSelection() {
-    setState(() {
-      selectedCartIds.clear();
-      isSelectionMode = false;
-    });
-  }
-
-  void _handleViewSelected() {
-    // Handle view action for selected carts
-    print('Viewing selected carts: $selectedCartIds');
-    // Add your view logic here
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isSelectionMode
-            ? '${selectedCartIds.length} selected'
-            : 'Cart List'),
-        actions: [
-          if (isSelectionMode)
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: _clearSelection,
-            ),
-        ],
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: 10, // Replace with your actual cart list
-        itemBuilder: (context, index) {
-          final cartId = 'cart_$index';
-          final machine = MachinePickListModel(
-            name: 'Machine $index',
-            state: index % 3 == 0 ? 'pickive': 'active', id: 0, pick_list_id: 0, pickListIds: [],
-          );
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: PickerFillerMatchingCart(
-              role: 'picker',
-              machine: machine,
-              onTap: () => _handleTap(cartId),
-              onLongPress: () => _handleLongPress(cartId),
-              isSelected: selectedCartIds.contains(cartId),
-              isSelectionMode: isSelectionMode,
-            ),
-          );
-        },
-      ),
-      floatingActionButton: selectedCartIds.isNotEmpty
-          ? FloatingActionButton.extended(
-        onPressed: _handleViewSelected,
-        icon: const Icon(Icons.visibility),
-        label: const Text('View'),
-        backgroundColor: AppColors.primary,
-      )
-          : null,
     );
   }
 }

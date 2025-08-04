@@ -1,21 +1,24 @@
-// lib/screens/professional_machine_products_screen.dart
+// lib/screens/picker_machine_product_screen.dart
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:staff_mangement/reusebleWidgets/app_bar_section.dart';
 import '../constants/theme.dart';
-import '../Models/machine_pick_list_model.dart';
 import '../Models/picker_machine_product.dart';
 import '../providers/picker_data_provider.dart';
+import '../reusebleWidgets/loading_btn.dart';
 import '../reusebleWidgets/showDialog.dart';
 import '../widgets/filler_operation_dragable_form_sheet.dart';
 import '../widgets/picker_filler_product_cart.dart';
+import '../servicess/barcode_scanner_service.dart'; // Import barcode service
 
 class PickerFillerMachineProductScreen extends StatefulWidget {
   final String role;
   final List machineDetails;
   List<dynamic> machineProductIdsList;
-   PickerFillerMachineProductScreen({
+  PickerFillerMachineProductScreen({
     super.key,
     required this.role,
     required this.machineDetails,
@@ -32,22 +35,234 @@ class _PickerFillerMachineProductScreenState
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
-  late  List<PickerMachineProductModel> productsList = [];
+  late List<PickerMachineProductModel> productsList = [];
   final Map<int, bool> _selectedProducts = {};
   final Map<int, int> _productQuantities = {};
   String _searchQuery = '';
   int totalPickedItem = 0;
   bool _isLoading = true;
 
+  // Barcode scanning variables
+  late BarcodeScannerService _barcodeService;
+  bool _isScannerEnabled = false;
+  String _lastScannedBarcode = '';
+
+  List<dynamic> basketNumberList =[];
+
   @override
   void initState() {
     super.initState();
     initLoading();
+    if(widget.role =="picker"){
+      _initializeBarcodeScanner();
+    }
   }
 
-  initLoading()async{
-     _setupAnimations();
-     await _loadMachineData();
+  initLoading() async {
+    _setupAnimations();
+    _loadMachineData();
+  }
+  // Initialize barcode scanner for auto-picking
+  void _initializeBarcodeScanner() async {
+    _barcodeService = BarcodeScannerService();
+    bool initialized = await _barcodeService.initialize();
+
+    if (initialized) {
+      setState(() {
+        _isScannerEnabled = true;
+      });
+
+      // Listen to barcode scan results
+      _barcodeService.barcodeStream.listen((scannedBarcode) {
+        _handleBarcodeScanned(scannedBarcode);
+      });
+      print('Barcode scanner initialized successfully for auto-picking');
+    } else {
+      print('Failed to initialize barcode scanner');
+    }
+  }
+
+  // Handle barcode scan result - auto pick product
+  void _handleBarcodeScanned(String barcode) {
+    setState(() {
+      _lastScannedBarcode = barcode;
+    });
+
+    // Find product that matches the scanned barcode
+    PickerMachineProductModel? matchedProduct = _findProductByBarcode(barcode);
+
+    if (matchedProduct != null) {
+      // Auto-pick the product
+      _autoPickProduct(matchedProduct);
+
+      // Show success feedback
+      _showBarcodeSuccessMessage(matchedProduct.displayName, barcode);
+    } else {
+      // Show error feedback - no matching product found
+      _showBarcodeErrorMessage(barcode);
+    }
+  }
+  // Find product that matches the scanned barcode
+  PickerMachineProductModel? _findProductByBarcode(String barcode) {
+    for (PickerMachineProductModel product in productsList) {
+      // Check if barcode matches product code
+      if (product.barcode == barcode) {
+        final list = Provider.of<PickerDataProvider>(context,listen: false).pickerMachineProductDetails;
+        for(PickerMachineProductModel item in list){
+          if(item.id == product.id){
+            item.isPicked =_selectedProducts[product.id]!;
+          }
+        }
+        return product;
+      }
+
+      // Check if barcode matches product SKU (if available)
+      if (product.barcode != null && product.machineName == barcode) {
+        return product;
+      }
+
+      // Check if barcode matches product ID as string
+      if (product.id.toString() == barcode) {
+        return product;
+      }
+
+      // You can add more matching criteria here based on your product model
+      // For example, if you have a dedicated barcode field:
+      // if (product.barcode == barcode) {
+      //   return product;
+      // }
+    }
+
+    return null;
+  }
+
+  // Auto-pick the matched product
+  void _autoPickProduct(PickerMachineProductModel product) {
+    if (widget.role == "picker" &&
+        (widget.machineDetails[0]['state'] == "picked" || widget.machineDetails[0]['state'] == "filled")) {
+      _showBarcodeErrorMessage(_lastScannedBarcode, "Cannot pick - machine already processed");
+      return;
+    }
+    if (widget.role != "picker" && widget.machineDetails[0]['state'] == "filled") {
+      _showBarcodeErrorMessage(_lastScannedBarcode, "Cannot fill - machine already filled");
+      return;
+    }
+
+    setState(() {
+      // Auto-select the product
+      _selectedProducts[product.id] = true;
+
+      // Set quantity to the required pick amount
+      _productQuantities[product.id] = product.pickAmount;
+
+      // Update total picked items
+      _updateTotalPickedItems();
+    });
+
+    // Scroll to the selected product for visual feedback
+    _scrollToProduct(product);
+  }
+
+  // Update total picked items count
+  void _updateTotalPickedItems() {
+    totalPickedItem = 0;
+    final selectedProducts = productsList.where(
+            (product) => _selectedProducts[product.id] == true
+    ).toList();
+
+    for (PickerMachineProductModel item in selectedProducts) {
+      totalPickedItem += item.pickAmount;
+    }
+  }
+
+  // Scroll to the auto-picked product
+  void _scrollToProduct(PickerMachineProductModel product) {
+    // Find the index of the product in the filtered list
+    int index = _filteredProducts.indexWhere((p) => p.id == product.id);
+    if (index != -1) {
+      // Calculate scroll position (approximate)
+      double scrollPosition = index * 120.0; // Approximate card height
+
+      // You can implement scrolling logic here if you have a ScrollController
+      // _scrollController.animateTo(scrollPosition, ...);
+    }
+  }
+
+  // Show success message for barcode scan
+  void _showBarcodeSuccessMessage(String productName, String barcode) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Product Auto-Picked!',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '$productName (${barcode})',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).size.height - 150, // Adjust this value as needed
+          right: 20,
+          left: 20,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // Show error message for barcode scan
+  void _showBarcodeErrorMessage(String barcode, [String? customMessage]) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.error, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    customMessage ?? 'Product Not Found',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Barcode: $barcode',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: Duration(seconds: 4),
+      ),
+    );
   }
 
   void _setupAnimations() {
@@ -66,17 +281,50 @@ class _PickerFillerMachineProductScreenState
 
     _animationController.forward();
   }
+
   @override
   void dispose() {
     _animationController.dispose();
+    if(widget.role =="picker"){
+      _barcodeService.dispose();
+    }
     super.dispose();
+  }
+
+  // Load machine data (existing method)
+  Future<void> _loadMachineData() async {
+    try {
+      await Provider.of<PickerDataProvider>(context, listen: false)
+          .fetchPickerMachineProductData(widget.role,widget.machineProductIdsList);
+
+      setState(() => _isLoading = true);
+      setState(() {
+        productsList = Provider.of<PickerDataProvider>(context, listen: false)
+            .pickerMachineProductDetails;
+
+        // Initialize selection maps
+        for (final product in productsList) {
+          widget.role == "picker" ?
+          _selectedProducts[product.id] = product.isPicked:  _selectedProducts[product.id] = product.isFilled;
+          _productQuantities[product.id] = 0;
+        }
+
+        _isLoading = false;
+      });
+
+      _animationController.forward();
+    } catch (e) {
+      setState(() => _isLoading = false);
+      print('Error loading machine data: $e');
+    }
   }
 
   List<PickerMachineProductModel> get _filteredProducts {
     if (_searchQuery.isEmpty) return productsList;
 
     return productsList.where((product) {
-      return product.displayName.toLowerCase().contains(_searchQuery.toLowerCase());
+      return product.displayName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          product.barcode.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
@@ -90,11 +338,75 @@ class _PickerFillerMachineProductScreenState
       appBar: appBarSection(
         icon: Icons.analytics_outlined,
         headerTitle1: widget.machineDetails[0]["name"],
-        headerTitle2: '${productsList.length} products available',
+        headerTitle2: '',
         showNotification: true,
+        // Add barcode indicator in app bar
       ),
-      body: _isLoading ? _buildLoadingState() : _buildProductGrid(),
-      bottomNavigationBar: _buildBottomActions(),
+      body: _isLoading
+          ? _buildLoadingState()
+          : Column(
+        children: [
+          _buildHeader(),
+          if (_isScannerEnabled) _buildBarcodeStatus(),
+          Expanded(child: _buildProductGrid()),
+          if (_selectedCount > 0) _buildBottomControls(),
+        ],
+      ),
+    );
+  }
+
+  // Build barcode scanner status widget
+  Widget _buildBarcodeStatus() {
+    return Container(
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _isScannerEnabled ? AppColors.primary.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _isScannerEnabled ? AppColors.primary.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _isScannerEnabled ? Icons.qr_code_scanner : Icons.scanner_outlined,
+            color: _isScannerEnabled ? AppColors.primary : Colors.grey,
+            size: 20,
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _isScannerEnabled
+                  ? 'Scan to auto-pick'
+                  : 'Barcode scanner not available',
+              style: TextStyle(
+                color: _isScannerEnabled ? AppColors.primary : Colors.grey,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          if (_lastScannedBarcode.isNotEmpty) ...[
+            SizedBox(width: 8),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Last: $_lastScannedBarcode',
+                style: TextStyle(
+                  color: AppColors.success,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -107,11 +419,12 @@ class _PickerFillerMachineProductScreenState
             color: AppColors.primary,
             size: 50,
           ),
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: 24),
           Text(
-            'Loading Products...',
-            style: AppTextStyles.body1.copyWith(
+            'Loading products...',
+            style: TextStyle(
               color: AppColors.onSurfaceVariant,
+              fontSize: 16,
             ),
           ),
         ],
@@ -119,69 +432,51 @@ class _PickerFillerMachineProductScreenState
     );
   }
 
-  Future<void> _loadMachineData() async {
-    print("dffff.....${widget.machineProductIdsList}");
-    await Provider.of<PickerDataProvider>(context, listen: false).fetchPickerMachineProductData(widget.role,widget.machineProductIdsList);
-    try {
-      setState(() => _isLoading = true);
-      setState(() {
-        productsList =  Provider.of<PickerDataProvider>(context,listen: false).pickerMachineProductDetails;
-        _isLoading = false;
-      });
-      for (final product in productsList) {
-        print("5677.>${product.isPicked}");
-        widget.role == "picker" ?
-        _selectedProducts[product.id] = product.isPicked:  _selectedProducts[product.id] = product.isFilled;
-        _productQuantities[product.id] = 0;
-      }
-
-      _animationController.forward();
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showErrorMessage('Failed to load Product data: ${e.toString()}');
-    }
-  }
-
-  void _showErrorMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: AppColors.onPrimary),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
+  Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: TextField(
-        onChanged: (value) => setState(() => _searchQuery = value),
-        decoration: InputDecoration(
-          hintText: 'Search products...',
-          prefixIcon: const Icon(Icons.search_outlined),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () => setState(() => _searchQuery = ''),
-          )
-              : null,
-          filled: true,
-          fillColor: AppColors.surfaceVariant,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-            borderSide: BorderSide.none,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-        ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Search Bar
+          TextField(
+            onChanged: (value) => setState(() => _searchQuery = value),
+            decoration: InputDecoration(
+              hintText: 'Search products or scan barcode...',
+              prefixIcon: const Icon(Icons.search_outlined),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () => setState(() => _searchQuery = ''),
+              )
+                  : null,
+              filled: true,
+              fillColor: AppColors.surfaceVariant,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Summary Row
+          Row(
+            children: [
+              _buildSummaryItem('Total', '${productsList.length}', Icons.inventory_2, AppColors.primary),
+              _buildSummaryItem('Selected', '$_selectedCount', Icons.check_circle, AppColors.success),
+              _buildSummaryItem(widget.role == "picker" ?'Pick Amount':'Fill Amount', '$_totalQuantity', Icons.numbers, AppColors.warning),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -192,19 +487,23 @@ class _PickerFillerMachineProductScreenState
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, color: color, size: 18),
-          const SizedBox(width: AppSpacing.xs),
+          const SizedBox(width: 8),
           Column(
             children: [
               Text(
                 value,
-                style: AppTextStyles.subtitle2.copyWith(
+                style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
               Text(
                 label,
-                style: AppTextStyles.caption,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -221,7 +520,7 @@ class _PickerFillerMachineProductScreenState
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(16),
       itemCount: filteredProducts.length,
       itemBuilder: (context, index) {
         final product = filteredProducts[index];
@@ -234,38 +533,39 @@ class _PickerFillerMachineProductScreenState
               child: Opacity(
                 opacity: value,
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: ProfessionalProductCard(
-                    role:widget.role,
-                    bulkView: widget.machineDetails[0]["pickListId"] is List ?  true:false,
+                    role: widget.role,
+                    bulkView: widget.machineDetails[0]["pickListId"] is List ? true : false,
                     product: product,
                     isSelected: _selectedProducts[product.id] ?? false,
                     quantity: _productQuantities[product.id] ?? 0,
                     onSelectionChanged: () {
-                      print("hjkk.>>${widget.machineDetails[0]['state']}");
-                      if(widget.role == "picker" && (widget.machineDetails[0]['state'] == "picked" || widget.machineDetails[0]['state'] == "filled")){
+                      if (widget.role == "picker" &&
+                          (widget.machineDetails[0]['state'] == "picked" || widget.machineDetails[0]['state'] == "filled")) {
                         return;
                       }
-                      if( widget.role != "picker" && widget.machineDetails[0]['state'] == "filled"){
+                      if (widget.role != "picker" && widget.machineDetails[0]['state'] == "filled") {
                         return;
                       }
-                      print("sdsdsdsd999");
+
                       setState(() {
-                        _selectedProducts[product.id] =  _selectedProducts[product.id]! ? false : true;
+                        _selectedProducts[product.id] = !(_selectedProducts[product.id] ?? false);
                         widget.role == "picker" ?
-                       Provider.of<PickerDataProvider>(context,listen: false).pickerMachineProductDetails[index].isPicked = _selectedProducts[product.id]!:
+                        Provider.of<PickerDataProvider>(context,listen: false).pickerMachineProductDetails[index].isPicked = _selectedProducts[product.id]!:
                         Provider.of<PickerDataProvider>(context,listen: false).pickerMachineProductDetails[index].isFilled = _selectedProducts[product.id]!;
-                        // if (!selected) {
-                        //   _productQuantities[product.id] = 0;
-                        // } else if (_productQuantities[product.id] == 0) {
-                        //   _productQuantities[product.id] = 1;
-                        // }
+                        if (_selectedProducts[product.id]!) {
+                          _productQuantities[product.id] = product.pickAmount;
+                        } else {
+                          _productQuantities[product.id] = 0;
+                        }
+                        _updateTotalPickedItems();
                       });
                     },
-                    onQuantityChanged: (quantity) {
+                    onQuantityChanged: (newQuantity) {
                       setState(() {
-                        _productQuantities[product.id] = quantity;
-                        _selectedProducts[product.id] = quantity > 0;
+                        _productQuantities[product.id] = newQuantity;
+                        _updateTotalPickedItems();
                       });
                     },
                   ),
@@ -278,11 +578,64 @@ class _PickerFillerMachineProductScreenState
     );
   }
 
-  Widget _buildBottomActions() {
-    final hasValidSelection = _selectedCount > 0;
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 80,
+              color: AppColors.onSurfaceVariant.withOpacity(0.5),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              _searchQuery.isNotEmpty ? 'No products found' : 'No products available',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'Try adjusting your search or scan a barcode'
+                  : 'Products will appear here when available',
+              style: TextStyle(
+                color: AppColors.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (_searchQuery.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _searchQuery = '';
+                  });
+                },
+                icon: const Icon(Icons.clear_all),
+                label: const Text('Clear Search'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _buildBottomControls() {
+    if (widget.role == "picker" && widget.machineDetails[0]['state'] == "picked"){
+      return SizedBox();
+    }
+    if (widget.role != "picker" && widget.machineDetails[0]['state'] == "filled"){
+      return SizedBox();
+    }
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         boxShadow: [
@@ -296,90 +649,25 @@ class _PickerFillerMachineProductScreenState
       child: SafeArea(
         child: Row(
           children: [
-            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _clearAllSelections,
+                child: Text('Clear All'),
+              ),
+            ),
+            const SizedBox(width: 16),
             Expanded(
               flex: 2,
-              child: ElevatedButton.icon(
-                onPressed: widget.role == "picker" &&  (widget.machineDetails[0]['state'] == "picked"|| widget.machineDetails[0]['state'] == "filled")
-                    ? null :  widget.role != "picker" &&  widget.machineDetails[0]['state'] == "filled" ? null
-                    : hasValidSelection
-                    ? _confirmSelection
-                    : null,
-                icon: const Icon(Icons.shopping_cart),
-                label: Text('Confirm',),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:  AppColors.primary.withOpacity(0.2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+              child: ElevatedButton(
+                onPressed: _confirmSelection,
+                child: Text(
+                  widget.role == "picker"
+                      ? 'Confirm'
+                      : 'Confirm',
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-
-  Widget _buildSummaryDivider() {
-    return Container(
-      height: 30,
-      width: 1,
-      color: AppColors.divider,
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return SingleChildScrollView(
-      child: Center(
-        child: SizedBox(
-          height: 700,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.kitchen,
-                  size: 60,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Text(
-                _searchQuery.isNotEmpty ? 'No machines found' : 'No machines available',
-                style: AppTextStyles.heading3.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                _searchQuery.isNotEmpty
-                    ? 'Try adjusting your search or filters'
-                    : 'Machines will appear here when available',
-                style: AppTextStyles.body2.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (_searchQuery.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.lg),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _searchQuery = '';
-                    });
-                  },
-                  icon: const Icon(Icons.clear_all),
-                  label: const Text('Clear Filters'),
-                ),
-              ],
-            ],
-          ),
         ),
       ),
     );
@@ -391,14 +679,54 @@ class _PickerFillerMachineProductScreenState
         _selectedProducts[key] = false;
         _productQuantities[key] = 0;
       }
+      _updateTotalPickedItems();
     });
   }
 
-  void _handleSubmission(role, List selectedProducts) async {
-    // Process the form data and selected products
-    print('Selected Products: $selectedProducts');
+  void _confirmSelection() {
+    if (widget.role != "picker" && productsList.length != _selectedCount) {
+      showSuccessMessage(context, "Please fill all products before proceeding");
+      return;
+    }
+
+    final selectedProducts = productsList.where(
+            (product) => _selectedProducts[product.id] == true
+    ).toList();
+
+    if (selectedProducts.isEmpty) return;
+
+    if (widget.role != "picker") {
+      FillerOperationConfirmationFormSheet().openDraggableSheet(
+        context,
+        selectedProducts: selectedProducts,
+        totalPickedItem: totalPickedItem,
+        role: widget.role,
+        onConfirm: (fillerRequiredData) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const LoadingOverlay(),
+          );
+          fillerRequiredData["state"] = "filled";
+          fillerRequiredData["machineId"] = widget.machineDetails[0]['pickListId'];
+          _handleSubmission(widget.role, fillerRequiredData,selectedProducts);
+          Navigator.pop(context);
+        },
+      );
+    } else {
+      Map pickerRequiredData ={};
+      pickerRequiredData["state"] = "picked";
+      _handleSubmission(widget.role, pickerRequiredData,selectedProducts);
+    }
+  }
+
+  void _handleSubmission(String role, requiredData,List selectedProducts) async {
     try {
-      // Save the picker machine product data
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const LoadingOverlay(),
+      );
       List<int> pickListIds;
 
       if (widget.machineDetails[0]["pickListId"] is List) {
@@ -406,32 +734,15 @@ class _PickerFillerMachineProductScreenState
       } else {
         pickListIds = [widget.machineDetails[0]["pickListId"]];
       }
-      print("dffff.>>${widget.machineDetails[0]["pickListId"]}");
       bool success = await Provider.of<PickerDataProvider>(context, listen: false)
-          .savePickerMachineProductData(widget.role, pickListIds);
-      print("dfffwwwwf");
-
+          .savePickerMachineProductData(widget.role, pickListIds,requiredData);
 
       if (success) {
-        // Update the local state
-        // final provider = Provider.of<PickerDataProvider>(context, listen: false);
-        // final list = provider.pickerMachineDetails;
-        //
-        // for (MachinePickListModel item in list) {
-        //   if (item.pick_list_id == widget.machineDetails[0]["pickListId"]) {
-        //     item.state = "picked";
-        //     break;
-        //   }
-        // }
-
-        // Notify listeners about the change
         Navigator.pop(context, true);
-        Provider.of<PickerDataProvider>(context, listen: false).updateMachinePickListState(widget.machineDetails[0]["pickListId"], "picked");
-        // provider.notifyListeners();
+        Provider.of<PickerDataProvider>(context, listen: false)
+            .updateMachinePickListState(pickListIds, "picked");
+        Navigator.pop(context);
 
-        // Navigate back with success result
-
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -449,7 +760,6 @@ class _PickerFillerMachineProductScreenState
           ),
         );
       } else {
-        // Handle error case
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to update. Please try again.'),
@@ -458,7 +768,7 @@ class _PickerFillerMachineProductScreenState
         );
       }
     } catch (e) {
-      print('Error in _handleFormSubmission: $e');
+      print('Error in _handleSubmission: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('An error occurred. Please try again.'),
@@ -467,161 +777,4 @@ class _PickerFillerMachineProductScreenState
       );
     }
   }
-  void _confirmSelection() {
-    print("tyuuuu..>${productsList.length}");
-    print("tyuuuu..eee>$_selectedCount");
-    if(widget.role != "picker" && productsList.length != _selectedCount){
-        showSuccessMessage(context,"Please fill all products before proceeding");
-        return;
-    }
-    totalPickedItem = 0;
-    final selectedProducts =productsList.where(
-          (product) => _selectedProducts[product.id] == true).toList();
-    for(PickerMachineProductModel item in selectedProducts){
-      setState(() {
-        totalPickedItem = totalPickedItem + item.pickAmount;
-      });
-    }
-    if (selectedProducts.isEmpty) return;
-
-    if(widget.role != "picker"){FillerOperationConfirmationFormSheet().openDraggableSheet(
-      context,
-      selectedProducts: selectedProducts,
-      totalPickedItem: totalPickedItem,
-      role: widget.role,
-      onConfirm: (formData) {
-        // Handle form submission
-        _handleSubmission(widget.role, selectedProducts);
-      });
-    }else{
-      _handleSubmission(widget.role, selectedProducts);
-    }
-
-    // showDialog(
-    //   context: context,
-    //   builder: (context) => AlertDialog(
-    //     shape: RoundedRectangleBorder(
-    //       borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-    //     ),
-    //     title: Row(
-    //       children: [
-    //         Icon(Icons.shopping_cart, color: AppColors.primary),
-    //         const SizedBox(width: AppSpacing.md),
-    //         const Text('Confirm Selection'),
-    //       ],
-    //     ),
-    //     content: SizedBox(
-    //       width: double.maxFinite,
-    //       child: Column(
-    //         mainAxisSize: MainAxisSize.min,
-    //         crossAxisAlignment: CrossAxisAlignment.start,
-    //         children: [
-    //           Text(
-    //             widget.role == "picker" ?
-    //             'Selected ${selectedProducts.length} products for picking:' : 'Selected ${selectedProducts.length} products for filling:',
-    //             style: AppTextStyles.body1.copyWith(fontWeight: FontWeight.w600),
-    //           ),
-    //           const SizedBox(height: AppSpacing.lg),
-    //           Container(
-    //             constraints: const BoxConstraints(maxHeight: 200),
-    //             child: ListView.separated(
-    //               shrinkWrap: true,
-    //               itemCount: selectedProducts.length,
-    //               separatorBuilder: (context, index) => const Divider(height: 1),
-    //
-    //               itemBuilder: (context, index) {
-    //                 final product = selectedProducts[index];
-    //                 return ListTile(
-    //                   leading: Container(
-    //                     width: 40,
-    //                     height: 40,
-    //                     decoration: BoxDecoration(
-    //                       color: AppColors.primary.withOpacity(0.1),
-    //                       shape: BoxShape.circle,
-    //                     ),
-    //                     child: Icon(
-    //                       Icons.inventory_2,
-    //                       color: AppColors.primary,
-    //                       size: 20,
-    //                     ),
-    //                   ),
-    //                   title: Text(
-    //                     product.displayName,
-    //                     style: AppTextStyles.body2.copyWith(
-    //                       fontWeight: FontWeight.w600,
-    //                     ),
-    //                   ),
-    //                   trailing: Container(
-    //                     padding: const EdgeInsets.symmetric(
-    //                       horizontal: AppSpacing.sm,
-    //                       vertical: 4,
-    //                     ),
-    //                     decoration: BoxDecoration(
-    //                       color: AppColors.success.withOpacity(0.1),
-    //                       borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-    //                     ),
-    //                     child: Text(
-    //                       'Qty: ${product.pickAmount}',
-    //                       style: AppTextStyles.caption.copyWith(
-    //                         color: AppColors.success,
-    //                         fontWeight: FontWeight.bold,
-    //                       ),
-    //                     ),
-    //                   ),
-    //                   contentPadding: EdgeInsets.zero,
-    //                 );
-    //               },
-    //             ),
-    //           ),
-    //           const SizedBox(height: AppSpacing.lg),
-    //           Container(
-    //             padding: const EdgeInsets.all(AppSpacing.md),
-    //             decoration: BoxDecoration(
-    //               color: AppColors.info.withOpacity(0.1),
-    //               borderRadius: BorderRadius.circular(AppBorderRadius.md),
-    //             ),
-    //             child: Row(
-    //               children: [
-    //                 Icon(Icons.info_outline, color: AppColors.info, size: 20),
-    //                 const SizedBox(width: AppSpacing.md),
-    //                 Expanded(
-    //                   child: Text(
-    //                     widget.role == "picker" ?
-    //                     'Total items to pick: $totalPickedItem':'Total items to fill: $totalPickedItem',
-    //                     style: AppTextStyles.body2.copyWith(
-    //                       color: AppColors.info,
-    //                       fontWeight: FontWeight.w600,
-    //                     ),
-    //                   ),
-    //                 ),
-    //               ],
-    //             ),
-    //           ),
-    //         ],
-    //       ),
-    //     ),
-    //     actions: [
-    //       TextButton(
-    //         onPressed: () => Navigator.pop(context),
-    //         child: const Text('Cancel'),
-    //       ),
-    //       ElevatedButton.icon(
-    //
-    //         onPressed: () {
-    //           Provider.of<PickerDataProvider>(context,listen: false).savePickerMachineProductData(widget.role,widget.machineDetails[0]["pickListId"]);
-    //           Navigator.pop(context);
-    //           Navigator.pop(context);
-    //         },
-    //         icon: const Icon(Icons.check),
-    //         label: const Text('Confirm'),
-    //         style: ElevatedButton.styleFrom(
-    //           backgroundColor:  AppColors.primary.withOpacity(0.2),
-    //         ),
-    //       ),
-    //     ],
-    //   ),
-    // );
-  }
-
 }
-

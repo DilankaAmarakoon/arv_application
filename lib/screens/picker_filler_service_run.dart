@@ -62,7 +62,6 @@ class _PickerServiceRunScreenState extends State<PickerServiceRunScreen>
     _animationController.dispose();
     super.dispose();
   }
-
   Future<void> _loadMachineData() async {
     try {
       await Provider.of<PickerDataProvider>(context, listen: false).fetchServiceRunList();
@@ -82,11 +81,7 @@ class _PickerServiceRunScreenState extends State<PickerServiceRunScreen>
 
 
   List<PickerServiceRunModel> get _filteredServiceRuns {
-    print("sdsdsd444444");
     List<PickerServiceRunModel> filtered = _serviceRuns;
-
-
-    print("√,,,.>>$filtered");
 
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
@@ -120,7 +115,7 @@ class _PickerServiceRunScreenState extends State<PickerServiceRunScreen>
       backgroundColor: AppColors.background,
       appBar: appBarSection(
         icon: Icons.analytics_outlined,
-        headerTitle1: widget.role == "picker" ? 'Service Run Operations' : 'Filler Operations',
+        headerTitle1: widget.role == "picker" ? 'Service Run Picker Operations' : 'Service Run Filler Operations',
         headerTitle2: 'Manage and monitor your vending machines',
         showNotification: true,
       ),
@@ -330,6 +325,7 @@ class _PickerServiceRunScreenState extends State<PickerServiceRunScreen>
   }
 
   void _showErrorMessage(String message) {
+    if(mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

@@ -9,6 +9,7 @@ class MachinePickListModel {
   final String name;
   String state;
   final List pickListIds;
+  String basketNumbers;
 
   MachinePickListModel({
     required this.id,
@@ -16,6 +17,7 @@ class MachinePickListModel {
     required this.name,
     required this.state,
     required this.pickListIds,
+    required this.basketNumbers,
   });
 
   //
@@ -33,6 +35,7 @@ class MachinePickListModel {
       name: xmlRpcData['machine_id'][1] as String,
       state: xmlRpcData['state'] as String,
       pickListIds: xmlRpcData['pick_list_ids'] as List,
+      basketNumbers: xmlRpcData['basket_no'] == false ? "" :xmlRpcData['basket_no'],
     );
   }
 }

@@ -8,6 +8,7 @@ import '../Models/picker_machine_product.dart';
 import '../constants/theme.dart';
 import '../providers/picker_data_provider.dart';
 import '../reusebleWidgets/app_bar_section.dart';
+import '../widgets/basket_number_popup.dart';
 import '../widgets/picker_filler_machine_cart.dart';
 import '../widgets/picker_operation_dragable_form_sheet.dart';
 import '../widgets/profile_section_drawer.dart';
@@ -28,11 +29,11 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedFilter = 'All';
+  String basketNumbers ="";
 
   // Selection mode variables
   List<int> _selectedMachineIds = [];
   bool _isSelectionMode = false;
-
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   Key _screenKey = UniqueKey();
@@ -74,7 +75,6 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
     }
     setState(() {
       if (!_isSelectionMode) {
-        print("sdsds");
         _isSelectionMode = true;
           _selectedMachineIds.add(machine.pick_list_id);
       } else {
@@ -82,16 +82,33 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
       }
     });
   }
+  void _handleDoublePress(MachinePickListModel machine,int index) {
+    if(widget.role  != "picker" || _isSelectionMode){
+      return;
+    }
+    List<String> existingBaskets = [];
+    if (machine.basketNumbers != null && machine.basketNumbers!.isNotEmpty) {
+      existingBaskets = machine.basketNumbers!
+          .split(',')
+          .map((e) => e.trim()) // Remove spaces
+          .where((e) => e.isNotEmpty) // Remove empty strings
+          .toList();
+    }
+      showScanBasketDialog(context,existingBaskets).then((value)async{
+        if(value !=null){
+           machine.basketNumbers = value.join(',');
+            await Provider.of<PickerDataProvider>(context, listen: false)
+               .saveBasketNumbersData(machine.pick_list_id,machine.basketNumbers);
+            _loadMachineData();
+        }});
+  }
 
   void _handleTap(MachinePickListModel machine) {
     if (_isSelectionMode) {
-      print("sdsddaaaa");
       if(machine.state !="picked"){
         _toggleSelection(machine.pick_list_id);
       }
     } else {
-      print("eeeeee");
-
       _navigateToMachineProducts(machine);
     }
   }
@@ -116,7 +133,7 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
     });
   }
 
-   _handleViewSelected() {
+  _handleViewSelected() {
     // Filter selected machines
     List<MachinePickListModel> selectedMachines = _machines
         .where((machine) => _selectedMachineIds.contains(machine.pick_list_id))
@@ -139,9 +156,6 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
         "state": state,
       }
     ];
-
-    print('Machine Details: hh${selectedMachinesIds.length}');
-    print('Machine Details: $machineDetails');
      _navigateToListMachineProducts(selectedMachinesIds, machineDetails);
   }
 
@@ -151,6 +165,8 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
   Future<void> _loadMachineData() async {
     try {
       await Provider.of<PickerDataProvider>(context, listen: false).fetchMachinePickList(role:widget.role,serviceRunId:widget.service_run_id);
+      await Provider.of<PickerDataProvider>(context, listen: false)
+          .fetchHrEmployeeDataData();
       setState(() => _isLoading = true);
       setState(() {
         _machines =  Provider.of<PickerDataProvider>(context,listen: false).pickerMachineDetails;
@@ -159,17 +175,18 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
 
       _animationController.forward();
     } catch (e) {
+      if(mounted) return;
       setState(() => _isLoading = false);
       _showErrorMessage('Failed to load machine data: ${e.toString()}');
     }
   }
-
   List<MachinePickListModel> get _filteredMachines {
-    print("sdsdsd444444");
-    List<MachinePickListModel> filtered = _machines;
-
-    print("√,,,.>>$filtered");
-
+    List<MachinePickListModel> filtered =[];
+    if(_isSelectionMode){
+      filtered = _machines.where((machine) => machine.state != "picked").toList();
+    }else{
+      filtered = _machines;
+    }
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((machine) {
@@ -197,37 +214,47 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _screenKey,
-      backgroundColor: AppColors.background,
-      appBar: appBarSection(
-        icon: Icons.analytics_outlined,
-        headerTitle1: _isSelectionMode
-            ? '${_selectedMachineIds.length} selected'
-            : widget.role == "picker" ? '${widget.service_run_name}\nMachine Operations' : 'Filler Operations',
-        headerTitle2: _isSelectionMode
-            ? 'Tap to select/deselect machines'
-            : 'Manage and monitor your vending machines',
-        showNotification: !_isSelectionMode,
-        // Add close button for selection mode
-        actions: _isSelectionMode ? [
-          IconButton(
-            icon: Icon(Icons.close),
-            onPressed: _clearSelection,
-          ),
-        ] : null,
+    return  WillPopScope(
+      onWillPop: () async {
+        if(widget.role == "picker"){
+          return false;
+
+        }else{
+          return true;
+        }
+      },
+      child: Scaffold(
+        key: _screenKey,
+        backgroundColor: AppColors.background,
+        appBar: appBarSection(
+          icon: Icons.analytics_outlined,
+          headerTitle1: _isSelectionMode
+              ? '${_selectedMachineIds.length} selected'
+              : widget.role == "picker" ? '${widget.service_run_name}\nMachine Operations' : 'Filler Operations',
+          headerTitle2: _isSelectionMode
+              ? 'Tap to select/deselect machines'
+              : 'Manage and monitor your vending machines',
+          showNotification: !_isSelectionMode,
+          // Add close button for selection mode
+          actions: _isSelectionMode ? [
+            IconButton(
+              icon: Icon(Icons.close),
+              onPressed: _clearSelection,
+            ),
+          ] : null,
+        ),
+        endDrawer: _isSelectionMode ? null : const ProfileSectionDrawer(),
+        body: _isLoading ? _buildLoadingState() : _buildContent(),
+        floatingActionButton: _selectedMachineIds.isNotEmpty
+            ? FloatingActionButton.extended(
+          onPressed: _handleViewSelected,
+          icon: const Icon(Icons.add),
+          label: const Text('Pick'),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+        )
+            : null,
       ),
-      endDrawer: _isSelectionMode ? null : const ProfileSectionDrawer(),
-      body: _isLoading ? _buildLoadingState() : _buildContent(),
-      floatingActionButton: _selectedMachineIds.isNotEmpty
-          ? FloatingActionButton.extended(
-        onPressed: _handleViewSelected,
-        icon: const Icon(Icons.visibility),
-        label: const Text('View'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      )
-          : null,
     );
   }
 
@@ -291,17 +318,13 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
                     context,
                     role: "picker",
                     onConfirm: (formData) {
-                      // Handle the picker confirmation data
-                      print('Picker form submitted: $formData');
+                      Provider.of<PickerDataProvider>(context,listen: false).saveServiceRunPickerForm(formData,widget.service_run_id);
+                      Navigator.pop(context);
                     },
                   );
                 },
                 icon: const Icon(Icons.shopping_cart),
                 label: Text('Confirm Operation',),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:  AppColors.primary.withOpacity(0.2),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
               ),
             ),
           ],
@@ -415,6 +438,7 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
                       machine: machine,
                       onTap: () => _handleTap(machine),
                       onLongPress: () =>  _handleLongPress(machine),
+                      onDoublePress: () =>  _handleDoublePress(machine,index),
                       isSelected: isSelected,
                       isSelectionMode: _isSelectionMode,
                     ),

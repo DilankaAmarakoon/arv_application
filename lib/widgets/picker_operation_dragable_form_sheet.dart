@@ -1,9 +1,12 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:staff_mangement/constants/padding.dart';
+import '../Models/hr_employee_model.dart';
 import '../constants/colors.dart';
 import '../constants/theme.dart';
+import '../providers/picker_data_provider.dart';
 
 class PickerOperationConfirmationFormSheet {
   void openDraggableSheet(BuildContext context, {
@@ -68,7 +71,6 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
   final _pickerNameController = TextEditingController();
   final _pickingDateController = TextEditingController();
   final _serviceRunDateController = TextEditingController();
-  final _notesController = TextEditingController();
 
   // Checkbox states for picker checklist
   bool _vansParkedInSideWarehouse = false;
@@ -84,13 +86,8 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
   bool _checkUpstairsLights = false;
   bool _allLightsOff = false;
 
-  List<PictureDescriptionDetail> pictureDescDetails = [
-    PictureDescriptionDetail(name: "1. Van loading picture"),
-    PictureDescriptionDetail(name: "2. Warehouse before leaving picture"),
-    PictureDescriptionDetail(name: "3. Product loading verification picture"),
-    PictureDescriptionDetail(name: "4. Security alarm activation picture"),
-    PictureDescriptionDetail(name: "5. Vehicle condition check picture"),
-  ];
+  DropDownModel? _selectedEmployee;
+
 
   @override
   void initState() {
@@ -104,7 +101,6 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
     _pickerNameController.dispose();
     _pickingDateController.dispose();
     _serviceRunDateController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -137,7 +133,7 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Picker Operation Confirmation',
+                      'Picker Form',
                       style: AppTextStyles.heading2.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -174,10 +170,15 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
                 SizedBox(height: 24),
 
                 // Basic Information
-                _buildFormField(
-                  'Picker Name*',
-                  _pickerNameController,
-                  required: true,
+                _buildEmployeeDropdownField(
+                  label: 'Picker*',
+                  selectedValue: _selectedEmployee,
+                  options: Provider.of<PickerDataProvider>(context, listen: false).hrEmployeeData,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedEmployee = value;
+                    });
+                  },
                   icon: Icons.person,
                 ),
                 SizedBox(height: 16),
@@ -237,16 +238,6 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
                     setState(() => _allLightsOff = value!);
                   }),
                 ]),
-                SizedBox(height: 16),
-
-                // Notes Section
-                _buildFormField(
-                  'Additional Notes',
-                  _notesController,
-                  hint: 'Any additional observations or comments',
-                  icon: Icons.note,
-                  maxLines: 3,
-                ),
               ],
             ),
           ),
@@ -267,11 +258,7 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
                 child: ElevatedButton.icon(
                   onPressed: _submitForm,
                   icon: Icon(Icons.check),
-                  label: Text('Confirm Picker Operation'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary.withOpacity(0.2),
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                  ),
+                  label: Text('Submit Form'),
                 ),
               ),
             ],
@@ -390,6 +377,57 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
     );
   }
 
+  Widget _buildEmployeeDropdownField({
+    required String label,
+    required DropDownModel? selectedValue,
+    required IconData icon,
+    required List<DropDownModel> options,
+    required Function(DropDownModel?) onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.subtitle2.copyWith(fontWeight: FontWeight.w600),
+        ),
+        SizedBox(height: 8),
+        DropdownButtonFormField<DropDownModel>(
+          value: selectedValue,
+          onChanged: onChanged,
+          validator: (value) {
+            if (value == null) {
+              return 'Please select an option';
+            }
+            return null;
+          },
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: AppColors.primary),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey[300]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppColors.primary),
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+          items: options.map((DropDownModel employee) {
+            return DropdownMenuItem<DropDownModel>(
+              value: employee,
+              child: Text(employee.name),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
   Widget _buildDateField(String label, TextEditingController controller, {bool required = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -540,22 +578,21 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
     if (_formKey.currentState!.validate()) {
       // Collect form data
       final formData = {
-        'pickerName': _pickerNameController.text,
-        'pickingDate': _pickingDateController.text,
-        'serviceRunDate': _serviceRunDateController.text,
-        'vansParkedInSideWarehouse': _vansParkedInSideWarehouse,
-        'allBoxesLoadedInVans': _allBoxesLoadedInVans,
-        'chocolatesAndCookiesInFridge': _chocolatesAndCookiesInFridge,
-        'toolBoxAndFloatInVans': _toolBoxAndFloatInVans,
-        'checkFuelCardInVans': _checkFuelCardInVans,
-        'cardboardsInBailor': _cardboardsInBailor,
-        'check3FillersPhones': _check3FillersPhones,
-        'alarmDoneAndVideo': _alarmDoneAndVideo,
-        'checkDamagesForVehicle': _checkDamagesForVehicle,
-        'checkVehicleInsideClean': _checkVehicleInsideClean,
-        'checkUpstairsLights': _checkUpstairsLights,
-        'allLightsOff': _allLightsOff,
-        'notes': _notesController.text,
+        'picker_id': _selectedEmployee?.id,
+        'picking_date': _pickingDateController.text,
+        'service_run_date': _serviceRunDateController.text,
+        'vans_parked': _vansParkedInSideWarehouse,
+        'boxes_loaded': _allBoxesLoadedInVans,
+        'chocolates_in_fridge': _chocolatesAndCookiesInFridge,
+        'tool_box_float': _toolBoxAndFloatInVans,
+        'fuel_card_checked': _checkFuelCardInVans,
+        'cardboards_in_bailor': _cardboardsInBailor,
+        'phones_ipads_charged': _check3FillersPhones,
+        'alarm_video_done': _alarmDoneAndVideo,
+        'damages_informed': _checkDamagesForVehicle,
+        'vehicle_clean_check': _checkVehicleInsideClean,
+        'upstairs_lights_off': _checkUpstairsLights,
+        'all_lights_off': _allLightsOff,
       };
 
       // Call the onConfirm callback with form data

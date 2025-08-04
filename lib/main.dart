@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lock_orientation_screen/lock_orientation_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:staff_mangement/constants/colors.dart';
 import 'package:staff_mangement/providers/picker_data_provider.dart';
@@ -45,14 +46,16 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Staff Management',
-      theme: ThemeData(
-        primaryColor: k1mainColor,
-        colorScheme: ColorScheme.fromSeed(seedColor: k1mainColor),
+    return LockOrientation(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Staff Management',
+        theme: ThemeData(
+          primaryColor: k1mainColor,
+          colorScheme: ColorScheme.fromSeed(seedColor: k1mainColor),
+        ),
+        home: const HomePage(),
       ),
-      home: const HomePage(),
     );
   }
 }

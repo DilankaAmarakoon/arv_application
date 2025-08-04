@@ -1,9 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:staff_mangement/constants/padding.dart';
+import 'package:provider/provider.dart';
+import '../Models/hr_employee_model.dart';
 import '../constants/colors.dart';
 import '../constants/theme.dart';
+import '../providers/picker_data_provider.dart';
+import '../reusebleWidgets/loading_btn.dart';
 
 class FillerOperationConfirmationFormSheet {
   void openDraggableSheet(BuildContext context, {
@@ -73,8 +79,7 @@ class FillerConfirmationForm extends StatefulWidget {
 class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
   // Form Controllers
   final _formKey = GlobalKey<FormState>();
-  final _serviceManagerController = TextEditingController();
-  final _machineIdController = TextEditingController(text: 'ARV-');
+  final _machineIdController = TextEditingController();
   final _locationNameController = TextEditingController();
   final _fillDateController = TextEditingController();
   final _coinsController = TextEditingController();
@@ -95,9 +100,22 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
   bool _checkMissingPriceTags = false;
   bool _coinMechCheckWith50c = false;
 
-  // Dropdown values
-  String? _selectedCoinsOption;
-  String? _selectedNotesOption;
+  // Dropdown values - SEPARATE VARIABLES FOR EACH DROPDOWN
+  DropDownModel? _selectedEmployee;
+  DropDownModel? _selectedCoinsOption;
+  DropDownModel? _selectedNotesOption;
+
+  static List<DropDownModel> coins = [
+    DropDownModel(id: 1, name: "yes" ,string_id: "yes"),
+    DropDownModel(id: 2, name: "NO",string_id: "no"),
+    DropDownModel(id: 3, name: "Not Checked",string_id: "not_checked"),
+  ];
+
+  static List<DropDownModel> notes = [
+    DropDownModel(id: 1, name: "Empty",string_id: "empty"),
+    DropDownModel(id: 2, name: "Needs Attention",string_id: "needs_attention"),
+    DropDownModel(id: 3, name: "Ok",string_id: "ok"),
+  ];
 
   List<PictureDescriptionDetail> pictureDescDetails = [
     PictureDescriptionDetail(name: "1. Tray 1 pic - for stock check"),
@@ -112,9 +130,8 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     PictureDescriptionDetail(name: "10. Coin Mech pic (press door switch and get the pic)"),
     PictureDescriptionDetail(name: "11. Coin mech change on display pic"),
     PictureDescriptionDetail(name: "12. Machine pic just before leaving after machine is locked"),
-    PictureDescriptionDetail(name: "13. Spoiled product picture"),
+    PictureDescriptionDetail(name: "13. Spoiled product picture", isRequired: false),
   ];
-
 
   @override
   void initState() {
@@ -125,7 +142,6 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
 
   @override
   void dispose() {
-    _serviceManagerController.dispose();
     _machineIdController.dispose();
     _locationNameController.dispose();
     _fillDateController.dispose();
@@ -140,7 +156,38 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     super.dispose();
   }
 
+  // Helper function to convert file to base64
+  Future<String?> _convertToBase64(String filePath) async {
+    try {
+      File file = File(filePath);
+      Uint8List bytes = await file.readAsBytes();
+      String base64String = base64Encode(bytes);
+      return base64String;
+    } catch (e) {
+      print('Error converting file to base64: $e');
+      return null;
+    }
+  }
 
+  // Helper function to convert PlatformFile to base64
+  Future<String?> _convertPlatformFileToBase64(PlatformFile platformFile) async {
+    try {
+      Uint8List? bytes = platformFile.bytes;
+      if (bytes != null) {
+        String base64String = base64Encode(bytes);
+        return base64String;
+      } else if (platformFile.path != null) {
+        File file = File(platformFile.path!);
+        Uint8List fileBytes = await file.readAsBytes();
+        String base64String = base64Encode(fileBytes);
+        return base64String;
+      }
+      return null;
+    } catch (e) {
+      print('Error converting platform file to base64: $e');
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +218,7 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Confirmation Form',
+                      'Filler Form',
                       style: AppTextStyles.heading2.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -208,12 +255,19 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                 SizedBox(height: 24),
 
                 // Form Fields
-                _buildFormField(
-                  'Service Manager/Filler*',
-                  _serviceManagerController,
-                  required: true,
+                _buildEmployeeDropdownField(
+                  label: 'Service Manager/Filler*',
+                  selectedValue: _selectedEmployee,
+                  mandatoryField: true,
+                  options: Provider.of<PickerDataProvider>(context, listen: false).hrEmployeeData,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedEmployee = value;
+                    });
+                  },
                   icon: Icons.person,
                 ),
+
                 SizedBox(height: 16),
 
                 _buildFormField(
@@ -246,21 +300,33 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                 ]),
                 SizedBox(height: 16),
 
-                // Dropdown Fields
-                _buildDropdownField('COINS*', _selectedCoinsOption, [
-                  'Collected',
-                  'No Coins',
-                ], (value) {
-                  setState(() => _selectedCoinsOption = value);
-                }),
+                // Coins dropdown
+                _buildEmployeeDropdownField(
+                  label: 'Coins',
+                  selectedValue: _selectedCoinsOption,
+                  options: coins,
+                  onChanged: (value) {
+                    setState(() {
+                      print("valuemm...>${value?.id}");
+                      _selectedCoinsOption = value;
+                    });
+                  },
+                  icon: Icons.currency_bitcoin_sharp,
+                ),
                 SizedBox(height: 16),
 
-                _buildDropdownField('NOTES*', _selectedNotesOption, [
-                  'Collected',
-                  'No Notes',
-                ], (value) {
-                  setState(() => _selectedNotesOption = value);
-                }),
+                // Notes dropdown
+                _buildEmployeeDropdownField(
+                  label: 'Notes',
+                  selectedValue: _selectedNotesOption,
+                  options: notes,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedNotesOption = value;
+                    });
+                  },
+                  icon: Icons.notes,
+                ),
                 SizedBox(height: 16),
 
                 // More Checkboxes
@@ -340,8 +406,7 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                 SizedBox(height: 16),
 
                 // File Upload Section
-                SizedBox(
-                    child: _buildFileUploadSection()),
+                SizedBox(child: _buildFileUploadSection()),
               ],
             ),
           ),
@@ -364,7 +429,7 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                   icon: Icon(Icons.check),
                   label: Text('Confirm Filler Operation'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:  AppColors.primary.withOpacity(0.2),
+                    backgroundColor: AppColors.primary.withOpacity(0.2),
                     padding: EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
@@ -487,7 +552,6 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     );
   }
 
-
   Widget _buildFUploadField(
       TextEditingController controller, {
         bool required = false,
@@ -546,8 +610,6 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
       ],
     );
   }
-
-
 
   Widget _buildDateField() {
     return Column(
@@ -609,12 +671,14 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     );
   }
 
-  Widget _buildDropdownField(
-      String label,
-      String? value,
-      List<String> options,
-      Function(String?) onChanged,
-      ) {
+  Widget _buildEmployeeDropdownField({
+    required String label,
+    required DropDownModel? selectedValue,
+    required IconData icon,
+    mandatoryField = false,
+    required List<DropDownModel> options,
+    required Function(DropDownModel?) onChanged,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -623,16 +687,17 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
           style: AppTextStyles.subtitle2.copyWith(fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: value,
+        DropdownButtonFormField<DropDownModel>(
+          value: selectedValue,
           onChanged: onChanged,
           validator: (value) {
-            if (value == null) {
+            if (value == null && mandatoryField ==true) {
               return 'Please select an option';
             }
             return null;
           },
           decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: AppColors.primary),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -648,10 +713,10 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
             filled: true,
             fillColor: Colors.grey[50],
           ),
-          items: options.map((String option) {
-            return DropdownMenuItem<String>(
-              value: option,
-              child: Text(option),
+          items: options.map((DropDownModel employee) {
+            return DropdownMenuItem<DropDownModel>(
+              value: employee,
+              child: Text(employee.name),
             );
           }).toList(),
         ),
@@ -706,10 +771,10 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: _buildFUploadField(
-                detail.controller,
-                hint: detail.name,
-                required: true,
-                icon: Icons.cloud_upload,
+                  detail.controller,
+                  hint: detail.name,
+                  required: detail.isRequired,
+                  icon: Icons.cloud_upload,
                   onIconPressed: () async {
                     final source = await showDialog<ImageSource>(
                       context: context,
@@ -738,63 +803,111 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                       final XFile? photo = await ImagePicker().pickImage(source: source);
                       if (photo != null) {
                         detail.controller.text = photo.name;
-                        // Save the path or file
+                        // Convert to base64 and store
+                        String? base64String = await _convertToBase64(photo.path);
+                        if (base64String != null) {
+                          detail.base64Image = base64String;
+                          detail.fileName = photo.name;
+                        }
                       }
                     } else {
                       // File picker selected
-                      FilePickerResult? result = await FilePicker.platform.pickFiles();
-                      if (result != null) {
-                        detail.controller.text = result.files.single.name;
-                        // Save the path or file
+                      FilePickerResult? result = await FilePicker.platform.pickFiles(
+                        type: FileType.image,
+                        allowMultiple: false,
+                      );
+                      if (result != null && result.files.isNotEmpty) {
+                        PlatformFile file = result.files.first;
+                        detail.controller.text = file.name;
+                        // Convert to base64 and store
+                        String? base64String = await _convertPlatformFileToBase64(file);
+                        if (base64String != null) {
+                          detail.base64Image = base64String;
+                          detail.fileName = file.name;
+                        }
                       }
                     }
                   }
-
               ),
             );
           }).toList(),
         ),
-
       ],
     );
   }
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
+  void _submitForm() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    try {
+      // Create list of images with base64 data
+      Navigator.pop(context);
+      List<String> imagesList = [];
+
+      for (int i = 0; i < pictureDescDetails.length; i++) {
+        PictureDescriptionDetail detail = pictureDescDetails[i];
+        if (detail.base64Image != null && detail.base64Image!.isNotEmpty) {
+          imagesList.add(detail.base64Image!);
+        }
+      }
+
       // Collect form data
       final formData = {
-        'serviceManager': _serviceManagerController.text,
-        'machineId': _machineIdController.text,
-        'locationName': _locationNameController.text,
-        'fillDate': _fillDateController.text,
-        'navaxCashCollection': _navaxCashCollection,
-        'machineCleaned': _machineCleaned,
-        'coins': _selectedCoinsOption,
-        'notes': _selectedNotesOption,
-        'meltedChocCookieCheck': _meltedChocCookieCheck,
-        'machineFilledAsPerPicklist': _machineFilledAsPerPicklist,
-        'checkAllTraysAreClosed': _checkAllTraysAreClosed,
-        'checkMissingPriceTags': _checkMissingPriceTags,
-        'freeProducts': _freeProductsController.text,
-        'refund': _refundController.text,
-        'clientFeedback': _clientFeedbackController.text,
-        'coinMechCheckWith50c': _coinMechCheckWith50c,
-        'coinsFilled': _coinsFilledController.text,
-        'finalCoinMechValue': _finalCoinMechController.text,
-        'cashBagId': _cashBagIdController.text,
+        'filler_employee_id': _selectedEmployee?.name,
+        'filler_machine_id': _machineIdController.text,
+        'filler_location_name': _locationNameController.text,
+        'filler_fill_datetime': _fillDateController.text,
+        'filler_nayax_cash_collected': _navaxCashCollection,
+        'filler_machine_cleaned': _machineCleaned,
+        'filler_coins': _selectedCoinsOption?.string_id,
+        'filler_notes': _selectedNotesOption?.string_id,
+        'filler_melted_check': _meltedChocCookieCheck,
+        'filler_filled_as_per_picklist': _machineFilledAsPerPicklist,
+        'filler_trays_closed': _checkAllTraysAreClosed,
+        'filler_missing_tags': _checkMissingPriceTags,
+        'filler_free_products': _freeProductsController.text,
+        'filler_refund_given': _refundController.text,
+        'filler_client_feedback': _clientFeedbackController.text,
+        'filler_coin_mech_50c': _coinMechCheckWith50c,
+        'filler_coins_filled': _coinsFilledController.text,
+        'filler_final_coin_mech_value': _finalCoinMechController.text,
+        'filler_cash_bag_id': _cashBagIdController.text,
+        'filler_attachment_ids': imagesList,
       };
 
+      print('Form submitted with ${imagesList.length} images');
+      print('FormData: $formData');
+
       // Call the onConfirm callback with form data
-      widget.onConfirm(formData);
+      // This should be awaited if it returns a Future
+      await widget.onConfirm(formData);
+
+    } catch (e) {
+      // Dismiss loading dialog on error
       Navigator.pop(context);
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error submitting form: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }
 
+// Updated PictureDescriptionDetail class with base64 and fileName properties
 class PictureDescriptionDetail {
   final String name;
   final TextEditingController controller;
+  final bool isRequired;
+  String? base64Image; // Store base64 string
+  String? fileName;    // Store file name
 
-  PictureDescriptionDetail({required this.name})
-      : controller = TextEditingController();
+  PictureDescriptionDetail({
+    required this.name,
+    this.isRequired = true // Default to true
+  }) : controller = TextEditingController();
 }

@@ -48,6 +48,7 @@ dependencies:
   file_picker: ^10.2.0
   image_picker: ^1.1.2
   flutter_datawedge: ^3.2.0
+  lock_orientation_screen: ^0.0.4
 
 dev_dependencies:
   flutter_test:

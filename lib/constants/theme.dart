@@ -252,7 +252,7 @@ class AppTextStyles {
   );
 
   static const TextStyle heading3 = TextStyle(
-    fontSize: 24,
+    fontSize: 15,
     fontWeight: FontWeight.w600,
     color: AppColors.onBackground,
   );
