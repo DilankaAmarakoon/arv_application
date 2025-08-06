@@ -86,19 +86,10 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
     if(widget.role  != "picker" || _isSelectionMode){
       return;
     }
-    List<String> existingBaskets = [];
-    if (machine.basketNumbers != null && machine.basketNumbers!.isNotEmpty) {
-      existingBaskets = machine.basketNumbers!
-          .split(',')
-          .map((e) => e.trim()) // Remove spaces
-          .where((e) => e.isNotEmpty) // Remove empty strings
-          .toList();
-    }
-      showScanBasketDialog(context,existingBaskets).then((value)async{
+      showScanBasketDialog(context,machine.basketNumbers).then((value)async{
         if(value !=null){
-           machine.basketNumbers = value.join(',');
             await Provider.of<PickerDataProvider>(context, listen: false)
-               .saveBasketNumbersData(machine.pick_list_id,machine.basketNumbers);
+               .saveBasketNumbersData(machine.pick_list_id,value);
             _loadMachineData();
         }});
   }
@@ -165,8 +156,8 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
   Future<void> _loadMachineData() async {
     try {
       await Provider.of<PickerDataProvider>(context, listen: false).fetchMachinePickList(role:widget.role,serviceRunId:widget.service_run_id);
-      await Provider.of<PickerDataProvider>(context, listen: false)
-          .fetchHrEmployeeDataData();
+      await Provider.of<PickerDataProvider>(context, listen: false).fetchHrEmployeeDataData();
+      await Provider.of<PickerDataProvider>(context,listen: false).fetchBasketNumberData();
       setState(() => _isLoading = true);
       setState(() {
         _machines =  Provider.of<PickerDataProvider>(context,listen: false).pickerMachineDetails;

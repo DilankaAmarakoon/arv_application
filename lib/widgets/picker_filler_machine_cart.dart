@@ -227,7 +227,7 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: AppSpacing.xs),
-          if(widget.machine.basketNumbers != "")Row(
+          if(widget.machine.basketNumbers.isNotEmpty)Row(
             children: [
               Icon(
                 Icons.shopping_basket,
@@ -237,7 +237,7 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
-                  widget.machine.basketNumbers ,
+                  widget.machine.basketNumbersDisplay.join(' | ') ?? '',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.onSurfaceVariant,
                     fontWeight: FontWeight.w500,

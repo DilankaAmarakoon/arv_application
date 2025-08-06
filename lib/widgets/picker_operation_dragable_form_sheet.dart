@@ -86,7 +86,7 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
   bool _checkUpstairsLights = false;
   bool _allLightsOff = false;
 
-  DropDownModel? _selectedEmployee;
+  int? _selectedEmployeeId;
 
 
   @override
@@ -172,11 +172,12 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
                 // Basic Information
                 _buildEmployeeDropdownField(
                   label: 'Picker*',
-                  selectedValue: _selectedEmployee,
+                  mandatoryField: true,
+                  selectedValue: _selectedEmployeeId,
                   options: Provider.of<PickerDataProvider>(context, listen: false).hrEmployeeData,
                   onChanged: (value) {
                     setState(() {
-                      _selectedEmployee = value;
+                      _selectedEmployeeId = value;
                     });
                   },
                   icon: Icons.person,
@@ -379,10 +380,11 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
 
   Widget _buildEmployeeDropdownField({
     required String label,
-    required DropDownModel? selectedValue,
+    required int? selectedValue, // Changed to int
     required IconData icon,
+    mandatoryField = false,
     required List<DropDownModel> options,
-    required Function(DropDownModel?) onChanged,
+    required Function(int?) onChanged, // Changed to int
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,11 +394,11 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
           style: AppTextStyles.subtitle2.copyWith(fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 8),
-        DropdownButtonFormField<DropDownModel>(
+        DropdownButtonFormField<int>(
           value: selectedValue,
           onChanged: onChanged,
           validator: (value) {
-            if (value == null) {
+            if (value == null && mandatoryField == true) {
               return 'Please select an option';
             }
             return null;
@@ -419,8 +421,8 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
             fillColor: Colors.grey[50],
           ),
           items: options.map((DropDownModel employee) {
-            return DropdownMenuItem<DropDownModel>(
-              value: employee,
+            return DropdownMenuItem<int>(
+              value: employee.id, // Use the int ID as value
               child: Text(employee.name),
             );
           }).toList(),
@@ -428,6 +430,7 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
       ],
     );
   }
+
   Widget _buildDateField(String label, TextEditingController controller, {bool required = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,7 +581,7 @@ class _PickerConfirmationFormState extends State<PickerConfirmationForm> {
     if (_formKey.currentState!.validate()) {
       // Collect form data
       final formData = {
-        'picker_id': _selectedEmployee?.id,
+        'picker_id': _selectedEmployeeId,
         'picking_date': _pickingDateController.text,
         'service_run_date': _serviceRunDateController.text,
         'vans_parked': _vansParkedInSideWarehouse,

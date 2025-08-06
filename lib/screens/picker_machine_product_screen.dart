@@ -107,15 +107,12 @@ class _PickerFillerMachineProductScreenState
     for (PickerMachineProductModel product in productsList) {
       // Check if barcode matches product code
       if (product.barcode == barcode) {
-        final list = Provider.of<PickerDataProvider>(context,listen: false).pickerMachineProductDetails;
-        for(PickerMachineProductModel item in list){
-          if(item.id == product.id){
-            item.isPicked =_selectedProducts[product.id]!;
-          }
-        }
+        _selectedProducts[product.id] = !(_selectedProducts[product.id] ?? false);
+        print("sssddd.,....>${_selectedProducts[product.id]!}");
+        Provider.of<PickerDataProvider>(context, listen: false)
+            .updateProductPickedStatus(product.id, _selectedProducts[product.id]!);
         return product;
       }
-
       // Check if barcode matches product SKU (if available)
       if (product.barcode != null && product.machineName == barcode) {
         return product;
@@ -548,7 +545,6 @@ class _PickerFillerMachineProductScreenState
                       if (widget.role != "picker" && widget.machineDetails[0]['state'] == "filled") {
                         return;
                       }
-
                       setState(() {
                         _selectedProducts[product.id] = !(_selectedProducts[product.id] ?? false);
                         widget.role == "picker" ?
@@ -628,7 +624,7 @@ class _PickerFillerMachineProductScreenState
   }
 
   Widget _buildBottomControls() {
-    if (widget.role == "picker" && widget.machineDetails[0]['state'] == "picked"){
+    if (widget.role == "picker" && (widget.machineDetails[0]['state'] == "picked" || widget.machineDetails[0]['state'] == "filled")){
       return SizedBox();
     }
     if (widget.role != "picker" && widget.machineDetails[0]['state'] == "filled"){

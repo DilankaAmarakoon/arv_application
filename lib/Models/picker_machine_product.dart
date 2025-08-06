@@ -27,10 +27,10 @@ class PickerMachineProductModel {
   factory PickerMachineProductModel.fromXmlRpc(Map<String, dynamic> xmlRpcData) {
     return (PickerMachineProductModel(
         id: xmlRpcData["id"],
-        productId: xmlRpcData["product_id"][0],
+        productId: xmlRpcData["product_id"] == false ?  0  :xmlRpcData["product_id"][0],
         barcode: xmlRpcData["barcode"]?? "",
-        displayName :xmlRpcData["product_id"][1],
-        machineName :xmlRpcData["machine_id"][1],
+        displayName :xmlRpcData["product_id"] == false ? "" :xmlRpcData["product_id"][1],
+        machineName :xmlRpcData["machine_id"] ==false ?  "" : xmlRpcData["machine_id"][1],
         pickAmount: xmlRpcData["pick_amount"],
         isPicked: xmlRpcData["picked"],
        isFilled: xmlRpcData["filled"],

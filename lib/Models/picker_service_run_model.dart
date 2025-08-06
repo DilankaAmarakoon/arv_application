@@ -33,7 +33,7 @@ class PickerServiceRunModel {
       id: xmlRpcData['id'] as int,
       name: xmlRpcData['name'],
       status: "active",
-      routeName: xmlRpcData['route_id'][1] as String,
+      routeName: xmlRpcData['route_id'] ==  false  ? "" : xmlRpcData['route_id'][1] as String,
       machines: xmlRpcData['machine_ids'],
       machineCount: xmlRpcData['machine_count'],
     );

@@ -9,7 +9,8 @@ class MachinePickListModel {
   final String name;
   String state;
   final List pickListIds;
-  String basketNumbers;
+  List basketNumbers;
+  List basketNumbersDisplay;
 
   MachinePickListModel({
     required this.id,
@@ -18,6 +19,7 @@ class MachinePickListModel {
     required this.state,
     required this.pickListIds,
     required this.basketNumbers,
+    required this.basketNumbersDisplay,
   });
 
   //
@@ -30,12 +32,13 @@ class MachinePickListModel {
 
   factory MachinePickListModel.fromXmlRpc(Map<String, dynamic> xmlRpcData) {
     return MachinePickListModel(
-      id: xmlRpcData['machine_id'][0]  as int,
+      id: xmlRpcData['machine_id'] == false ? 0 : xmlRpcData['machine_id'][0]  as int,
       pick_list_id: xmlRpcData['id']  as int,
-      name: xmlRpcData['machine_id'][1] as String,
+      name: xmlRpcData['machine_id'] == false ?  "" :xmlRpcData['machine_id'][1] as String,
       state: xmlRpcData['state'] as String,
       pickListIds: xmlRpcData['pick_list_ids'] as List,
-      basketNumbers: xmlRpcData['basket_no'] == false ? "" :xmlRpcData['basket_no'],
+      basketNumbers: xmlRpcData['tag_ids'],
+      basketNumbersDisplay: List<String>.from(xmlRpcData['tag_names'] ?? []),
     );
   }
 }

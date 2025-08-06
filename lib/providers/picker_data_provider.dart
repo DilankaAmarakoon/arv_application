@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:staff_mangement/Models/hr_employee_model.dart';
 import 'package:staff_mangement/Models/picker_machine_product.dart';
 import 'package:xml_rpc/client_c.dart' as xml_rpc;
+import '../Models/basket_details_model.dart';
 import '../Models/machine_pick_list_model.dart';
 import '../Models/picker_service_run_model.dart';
 import '../static_data.dart';
@@ -14,6 +15,7 @@ class PickerDataProvider with ChangeNotifier {
   List<MachinePickListModel> pickerMachineDetails = [];
   List<PickerMachineProductModel> pickerMachineProductDetails = [];
   List<DropDownModel> hrEmployeeData = [];
+  List<BasketDetailsModel> basketData = [];
 
   Future fetchServiceRunList() async {
     print("formattedDate  $formattedDate");
@@ -54,11 +56,11 @@ class PickerDataProvider with ChangeNotifier {
 
       return pickerServiceRunDetails;
     } catch (e) {
-      print("❌ Error in fetchMachinePickList: $e");
+      print("❌ Error in pickerServiceRun $e");
       return [];
     }
   }
-  Future fetchMachinePickList({required String role,required  int serviceRunId}) async {
+  Future fetchMachinePickList({required String role, required int serviceRunId}) async {
     print("formattedDate  $formattedDate");
     try {
       final pref = await SharedPreferences.getInstance();
@@ -68,16 +70,48 @@ class PickerDataProvider with ChangeNotifier {
       if (userId == null || password == null) return [];
 
       // Second API call - get machine data
-      final filtered =  role == 'picker' ?[
+      final filtered = role == 'picker' ? [
         [
-          ['service_run_id','=',serviceRunId]
+          ['service_run_id', '=', serviceRunId]
         ],
-      ]:[
+      ] : [
         [
-          ['service_run_id','=',serviceRunId],
+          ['service_run_id', '=', serviceRunId],
           ['state', '!=', 'draft'],
         ],
       ];
+
+      // First, get basket.tag data
+      final basketDataSet = await xml_rpc.call(
+        Uri.parse("$baseUrl/xmlrpc/2/object"),
+        'execute_kw',
+        [
+          dbName,
+          userId,
+          password,
+          'basket.tag',
+          'search_read',
+          [[]],
+          {
+            'fields': ['id', 'name', 'code'],
+          },
+        ],
+      );
+
+      print("basketDataSetmm...>$basketDataSet");
+
+      basketData = basketDataSet.cast<Map<String, dynamic>>()
+          .map((data) => BasketDetailsModel.fromXmlRpc(data))
+          .toList()
+          .cast<BasketDetailsModel>();
+
+      // Create a map for quick lookup of basket tag names by ID
+      Map<int, String> basketTagMap = {};
+      for (var basket in basketData) {
+        basketTagMap[basket.id] = basket.code;
+      }
+
+      // Get machine pick list data
       final machinePickList = await xml_rpc.call(
         Uri.parse("$baseUrl/xmlrpc/2/object"),
         'execute_kw',
@@ -89,36 +123,44 @@ class PickerDataProvider with ChangeNotifier {
           'search_read',
           filtered,
           {
-            'fields': ['id', 'machine_id', 'pick_list_ids','state','planned_date','filler_employee_id','basket_no'],
+            'fields': ['id', 'machine_id', 'pick_list_ids', 'state', 'planned_date', 'filler_employee_id', 'tag_ids'],
           },
         ],
       );
-      pickerMachineDetails =
-          machinePickList
-              .cast<Map<String, dynamic>>()
-              .map((data) => MachinePickListModel.fromXmlRpc(data))
-              .toList()
-              .cast<MachinePickListModel>();
+
+      // Process machine pick list and add tag names
+      pickerMachineDetails = machinePickList
+          .cast<Map<String, dynamic>>()
+          .map((data) {
+        // Get tag names for this machine pick list
+        List<String> tagNames = [];
+        if (data['tag_ids'] != null) {
+          List<dynamic> tagIds = data['tag_ids'] is List
+              ? data['tag_ids']
+              : [data['tag_ids']];
+
+          for (var tagId in tagIds) {
+            int id = tagId is int ? tagId : int.tryParse(tagId.toString()) ?? 0;
+            if (basketTagMap.containsKey(id)) {
+              tagNames.add(basketTagMap[id]!);
+            }
+          }
+        }
+        data['tag_names'] = tagNames;
+
+        return MachinePickListModel.fromXmlRpc(data);
+      })
+          .toList()
+          .cast<MachinePickListModel>();
 
       return pickerMachineDetails;
     } catch (e) {
-      print("❌ Error in fetchMachinePickList: $e");
+      print("❌ Error in machinePickListddd $e");
       return [];
     }
   }
 
   Future fetchPickerMachineProductData(String role,List machineProductIdsList) async {
-    List<dynamic> lk  =[
-      {"name":"951316"},
-      {"name":"951311"},
-      {"name":"937918"},
-      {"name":"928732"},
-      {"name":"927257"},
-      {"name":"921788"},
-      {"name":"951316"},
-      {"name":"951311"},
-      {"name":"937918"},
-    ];
     try {
       final pref = await SharedPreferences.getInstance();
       final userId = pref.getInt("user_Id");
@@ -149,15 +191,6 @@ class PickerDataProvider with ChangeNotifier {
           },
         ],
       );
-
-      // if(role == "picker"){
-      //   print("ssdffffffff");
-      //   for(int i =0; i< lk.length; i++){
-      //     machineProductData[i]["barcode"] = lk[i]["name"];
-      //   }
-      // }
-
-
       pickerMachineProductDetails =
           machineProductData
               .cast<Map<String, dynamic>>()
@@ -169,7 +202,7 @@ class PickerDataProvider with ChangeNotifier {
 
       return [];
     } catch (e) {
-      print("❌ Error in fetchPickerMachineData: $e");
+      print("❌ Error in machineProductData $e");
       return [];
     }
   }
@@ -201,6 +234,39 @@ class PickerDataProvider with ChangeNotifier {
               .cast<DropDownModel>();
 
       return hrEmployeeData;
+    } catch (e) {
+      print("❌ Error in hrEmployee: $e");
+      return [];
+    }
+  }
+  Future fetchBasketNumberData() async {
+    try {
+      final pref = await SharedPreferences.getInstance();
+      final userId = pref.getInt("user_Id");
+      final password = pref.getString("password");
+      if (userId == null || password == null) return [];
+      final basketDataSet = await xml_rpc.call(
+        Uri.parse("$baseUrl/xmlrpc/2/object"),
+        'execute_kw',
+        [
+          dbName,
+          userId,
+          password,
+          'basket.tag',
+          'search_read',
+          [[
+          ]],
+          {
+            'fields': ['id','name','code'],
+          },
+        ],
+      );
+      basketData = basketDataSet.cast<Map<String, dynamic>>()
+              .map((data) => BasketDetailsModel.fromXmlRpc(data))
+              .toList()
+              .cast<BasketDetailsModel>();
+
+      return basketData;
     } catch (e) {
       print("❌ Error in hrEmployee: $e");
       return [];
@@ -245,9 +311,7 @@ class PickerDataProvider with ChangeNotifier {
         ],
       );
 
-      // ✅ CALL machine.pick.list write
-      print("requiredData,,..$requiredData");
-
+      // ✅ CALL machine.pick.list writ
       Map<String, dynamic> finalRequiredData = {};
       finalRequiredData["state"] = role == "picker" ? "picked" : "filled";
 
@@ -330,14 +394,13 @@ class PickerDataProvider with ChangeNotifier {
           ],
         ],
       );
-
       return true;
     } catch (e) {
       print("❌ Error in savePickerMachineProductData: $e");
       return false;
     }
   }
-  Future<bool> saveBasketNumbersData(pickListId, basketNumbers) async {
+  Future<bool> saveBasketNumbersData(pickListId, List<int> basketNumbers) async {
     try {
       final pref = await SharedPreferences.getInstance();
       final userId = pref.getInt("user_Id");
@@ -352,6 +415,7 @@ class PickerDataProvider with ChangeNotifier {
       print("🔍 Attempting to update pickListId: $pickListId");
       print("🔍 Basket numbers: $basketNumbers");
 
+
       // ✅ CALL machine.pick.list write
       await xml_rpc.call(
         Uri.parse("$baseUrl/xmlrpc/2/object"),
@@ -364,7 +428,7 @@ class PickerDataProvider with ChangeNotifier {
           'write',
           [
             [pickListId],
-            {"basket_no": basketNumbers}
+            {"tag_ids": basketNumbers}
           ],
         ],
       );
@@ -415,6 +479,14 @@ class PickerDataProvider with ChangeNotifier {
       }
     }
     notifyListeners(); // This will update all listening widgets
+  }
+
+  void updateProductPickedStatus(int productId, bool isPicked) {
+    final index = pickerMachineProductDetails.indexWhere((item) => item.id == productId);
+    if (index != -1) {
+      pickerMachineProductDetails[index].isPicked = isPicked;
+      notifyListeners(); // Notify UI to rebuild
+    }
   }
 
 }

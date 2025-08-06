@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:staff_mangement/Models/basket_details_model.dart';
 import 'package:staff_mangement/constants/theme.dart';
+import 'package:staff_mangement/providers/picker_data_provider.dart';
 
 import '../servicess/barcode_scanner_service.dart';
 
-Future<List<String>?> showScanBasketDialog(BuildContext context,List<String> basketNumberList) {
-  return showDialog<List<String>>(
+Future<List<int>?> showScanBasketDialog(BuildContext context,List<dynamic> basketNumberList) {
+  return showDialog<List<int>>(
     context: context,
     barrierDismissible: false,
     builder: (context) =>  ScanBasketDialog(basketNumberList: basketNumberList),
@@ -12,7 +15,7 @@ Future<List<String>?> showScanBasketDialog(BuildContext context,List<String> bas
 }
 
 class ScanBasketDialog extends StatefulWidget {
-  List<String> basketNumberList;
+  List<dynamic> basketNumberList;
    ScanBasketDialog({Key? key,required this.basketNumberList}) : super(key: key);
 
   @override
@@ -20,7 +23,8 @@ class ScanBasketDialog extends StatefulWidget {
 }
 
 class _ScanBasketDialogState extends State<ScanBasketDialog> {
-  List<String> _scannedBaskets = [];
+  List<Map<String, dynamic>> _scannedBaskets = [];
+  List<int> _savedBasketNumberList =[];
   late BarcodeScannerService _barcodeService;
   bool _isScannerEnabled = false;
 
@@ -28,9 +32,7 @@ class _ScanBasketDialogState extends State<ScanBasketDialog> {
   void initState() {
     print("errr.....>${widget.basketNumberList}");
     super.initState();
-    if(widget.basketNumberList.isNotEmpty){
-    _scannedBaskets = widget.basketNumberList;
-    }
+    _loadBasketDetails();
     _initializeBarcodeScanner();
   }
 
@@ -39,7 +41,23 @@ class _ScanBasketDialogState extends State<ScanBasketDialog> {
     _barcodeService.dispose();
     super.dispose();
   }
-
+  _loadBasketDetails()async{
+    _scannedBaskets = [];
+    _savedBasketNumberList =[];
+    if(widget.basketNumberList.isNotEmpty){
+      for(int i =0; i<widget.basketNumberList.length; i++){
+        for(BasketDetailsModel item in Provider.of<PickerDataProvider>(context,listen: false).basketData){
+          if(item.id == widget.basketNumberList[i]){
+            _scannedBaskets.add({
+              "id": item.id,
+              "code": item.code,
+            });
+            _savedBasketNumberList.add(item.id);
+          }
+        }
+      }
+    }
+  }
   void _initializeBarcodeScanner() async {
     _barcodeService = BarcodeScannerService();
     bool initialized = await _barcodeService.initialize();
@@ -59,13 +77,21 @@ class _ScanBasketDialogState extends State<ScanBasketDialog> {
     }
   }
 
-  void _handleBarcodeScanned(String barcode) {
-    if (barcode.isNotEmpty && !_scannedBaskets.contains(barcode)) {
-      setState(() {
-        _scannedBaskets.add(barcode);
-        print("Scanned basket code: $barcode");
-      });
-    } else if (_scannedBaskets.contains(barcode)) {
+  void _handleBarcodeScanned(String barcode){
+    print("opop....$barcode");
+    if (barcode.isNotEmpty && !_isBasketAlreadyScanned(barcode)) {
+      print("ioooooo");
+          for(BasketDetailsModel item in Provider.of<PickerDataProvider>(context,listen: false).basketData){
+            if(item.code == barcode){
+              _scannedBaskets.add({
+                "id": item.id,
+                "code": item.code,
+              });
+              _savedBasketNumberList.add(item.id);
+            }
+          }
+      setState(() {});
+    } else if (_isBasketAlreadyScanned(barcode)) {
       // Show a brief message that this basket is already scanned
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -77,6 +103,11 @@ class _ScanBasketDialogState extends State<ScanBasketDialog> {
     }
   }
 
+// Helper method to check if basket is already scanned
+  bool _isBasketAlreadyScanned(String barcode) {
+    return _scannedBaskets.any((basket) => basket["code"] == barcode);
+  }
+
   void _removeScannedBasket(int index) {
     setState(() {
       _scannedBaskets.removeAt(index);
@@ -85,7 +116,9 @@ class _ScanBasketDialogState extends State<ScanBasketDialog> {
 
   void _onConfirm() {
     if (_scannedBaskets.isNotEmpty) {
-      Navigator.of(context).pop(_scannedBaskets);
+      print("llpp..>$_savedBasketNumberList");
+
+      Navigator.of(context).pop(_savedBasketNumberList);
     }
   }
 
@@ -252,7 +285,7 @@ class _ScanBasketDialogState extends State<ScanBasketDialog> {
                                         ),
                                       ),
                                       title: Text(
-                                        _scannedBaskets[index],
+                                        _scannedBaskets[index]["code"],
                                         style: TextStyle(
                                           fontWeight: isLatest
                                               ? FontWeight.w600

@@ -120,18 +120,19 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
   List<PictureDescriptionDetail> pictureDescDetails = [
     PictureDescriptionDetail(name: "1. Tray 1 pic - for stock check"),
     PictureDescriptionDetail(name: "2. Tray 2 pic - for stock check"),
-    PictureDescriptionDetail(name: "3. Tray 3 pic - for stock check"),
-    PictureDescriptionDetail(name: "4. Tray 4 pic - for stock check"),
-    PictureDescriptionDetail(name: "5. Tray 5 pic - for stock check"),
-    PictureDescriptionDetail(name: "6. Tray 6 pic - for stock check"),
-    PictureDescriptionDetail(name: "7. Door open front pic to see full machine products"),
-    PictureDescriptionDetail(name: "8. Drop box pic"),
-    PictureDescriptionDetail(name: "9. Cash bag pic"),
-    PictureDescriptionDetail(name: "10. Coin Mech pic (press door switch and get the pic)"),
-    PictureDescriptionDetail(name: "11. Coin mech change on display pic"),
-    PictureDescriptionDetail(name: "12. Machine pic just before leaving after machine is locked"),
+    PictureDescriptionDetail(name: "3. Tray 3 pic - for stock check", isRequired: false),
+    PictureDescriptionDetail(name: "4. Tray 4 pic - for stock check", isRequired: false),
+    PictureDescriptionDetail(name: "5. Tray 5 pic - for stock check", isRequired: false),
+    PictureDescriptionDetail(name: "6. Tray 6 pic - for stock check", isRequired: false),
+    PictureDescriptionDetail(name: "7. Door open front pic to see full machine products", isRequired: false),
+    PictureDescriptionDetail(name: "8. Drop box pic", isRequired: false),
+    PictureDescriptionDetail(name: "9. Cash bag pic", isRequired: false),
+    PictureDescriptionDetail(name: "10. Coin Mech pic (press door switch and get the pic)", isRequired: false),
+    PictureDescriptionDetail(name: "11. Coin mech change on display pic", isRequired: false),
+    PictureDescriptionDetail(name: "12. Machine pic just before leaving after machine is locked", isRequired: false),
     PictureDescriptionDetail(name: "13. Spoiled product picture", isRequired: false),
   ];
+
 
   @override
   void initState() {
@@ -877,7 +878,6 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
       };
 
       print('Form submitted with ${imagesList.length} images');
-      print('FormData: $formData');
 
       // Call the onConfirm callback with form data
       // This should be awaited if it returns a Future

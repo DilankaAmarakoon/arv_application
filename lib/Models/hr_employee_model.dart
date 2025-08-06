@@ -10,22 +10,30 @@ class DropDownModel {
 
   DropDownModel({
     required this.id,
-    this.string_id ="",
+    this.string_id = "",
     required this.name,
   });
 
-  //
-  // factory MachinePickListModel.fromJson(Map<String, dynamic> json) {
-  //   return MachinePickListModel(
-  //     id: json['id'] as int,
-  //     name: json['name'] as String,
-  //   );
-  // }
-
   factory DropDownModel.fromXmlRpc(Map<String, dynamic> xmlRpcData) {
     return DropDownModel(
-      id: xmlRpcData['id']  as int,
-      name: xmlRpcData['name']  as String,
+      id: xmlRpcData['id'] as int,
+      name: xmlRpcData['name'] as String,
     );
   }
+
+  // Add these methods to fix the dropdown issue
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DropDownModel &&
+        other.id == id &&
+        other.string_id == string_id &&
+        other.name == name;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, string_id, name);
+
+  @override
+  String toString() => 'DropDownModel(id: $id, string_id: $string_id, name: $name)';
 }
