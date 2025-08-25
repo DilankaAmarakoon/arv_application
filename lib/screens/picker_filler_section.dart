@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:staff_mangement/screens/picker_machine_product_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../Models/machine_pick_list_model.dart';
 import '../Models/picker_machine_product.dart';
 import '../constants/theme.dart';
-import '../providers/picker_data_provider.dart';
+import '../providers/picker_filler_data_provider.dart';
 import '../reusebleWidgets/app_bar_section.dart';
 import '../widgets/basket_number_popup.dart';
+import '../widgets/filler_location_dragable_form_sheet.dart';
 import '../widgets/picker_filler_machine_cart.dart';
 import '../widgets/picker_operation_dragable_form_sheet.dart';
 import '../widgets/profile_section_drawer.dart';
@@ -83,15 +85,34 @@ class _PickerFillerScreenState extends State<PickerFillerScreen>
     });
   }
   void _handleDoublePress(MachinePickListModel machine,int index) {
-    if(widget.role  != "picker" || _isSelectionMode){
+    if(_isSelectionMode){
       return;
     }
+    if(widget.role == "picker"){
       showScanBasketDialog(context,machine.basketNumbers).then((value)async{
         if(value !=null){
-            await Provider.of<PickerDataProvider>(context, listen: false)
-               .saveBasketNumbersData(machine.pick_list_id,value);
-            _loadMachineData();
+          await Provider.of<PickerDataProvider>(context, listen: false)
+              .saveBasketNumbersData(machine.pick_list_id,value);
+          _loadMachineData();
         }});
+    }else{
+      FillerLocationDragableFormSheet().openDraggableSheet(
+        context,
+        onConfirm: () {
+          _openMap(machine.latitude,machine.longitude);
+        },
+      );
+
+
+    }
+  }
+  Future<void> _openMap(latitude,longitude) async {
+    final Uri googleUrl = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
+    );
+    if (await canLaunchUrl(googleUrl)) {
+      await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
+    }
   }
 
   void _handleTap(MachinePickListModel machine) {

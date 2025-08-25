@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:staff_mangement/reusebleWidgets/app_bar_section.dart';
+import '../Models/machine_pick_list_model.dart';
 import '../constants/theme.dart';
 import '../Models/picker_machine_product.dart';
-import '../providers/picker_data_provider.dart';
+import '../providers/picker_filler_data_provider.dart';
 import '../reusebleWidgets/loading_btn.dart';
 import '../reusebleWidgets/showDialog.dart';
+import '../servicess/get_live_location.dart';
 import '../widgets/filler_operation_dragable_form_sheet.dart';
 import '../widgets/picker_filler_product_cart.dart';
 import '../servicess/barcode_scanner_service.dart'; // Import barcode service
@@ -49,6 +51,12 @@ class _PickerFillerMachineProductScreenState
 
   List<dynamic> basketNumberList =[];
 
+  List<dynamic> lk = [
+    {"lan":33.8688,"long":151.2093},
+    {"lan":40.7128,"long":74.0060},
+    {"lan":35.6895,"long":139.6917},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +89,27 @@ class _PickerFillerMachineProductScreenState
       print('Failed to initialize barcode scanner');
     }
   }
+  // initialize machine order
+
+    // Haversine formula to calculate distance between two points on Earth
+    double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+      const double earthRadius = 6371; // Earth's radius in kilometers
+
+      double dLat = _toRadians(lat2 - lat1);
+      double dLon = _toRadians(lon2 - lon1);
+
+      double a = sin(dLat / 2) * sin(dLat / 2) +
+          cos(_toRadians(lat1)) * cos(_toRadians(lat2)) *
+              sin(dLon / 2) * sin(dLon / 2);
+
+      double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+      return earthRadius * c;
+    }
+
+    double _toRadians(double degrees) {
+      return degrees * (pi / 180);
+    }
 
   // Handle barcode scan result - auto pick product
   void _handleBarcodeScanned(String barcode) {
@@ -108,7 +137,6 @@ class _PickerFillerMachineProductScreenState
       // Check if barcode matches product code
       if (product.barcode == barcode) {
         _selectedProducts[product.id] = !(_selectedProducts[product.id] ?? false);
-        print("sssddd.,....>${_selectedProducts[product.id]!}");
         Provider.of<PickerDataProvider>(context, listen: false)
             .updateProductPickedStatus(product.id, _selectedProducts[product.id]!);
         return product;
@@ -187,6 +215,7 @@ class _PickerFillerMachineProductScreenState
 
   // Show success message for barcode scan
   void _showBarcodeSuccessMessage(String productName, String barcode) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -211,7 +240,7 @@ class _PickerFillerMachineProductScreenState
             ),
           ],
         ),
-        backgroundColor: AppColors.success,
+        backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
         margin: EdgeInsets.only(
           bottom: MediaQuery.of(context).size.height - 150, // Adjust this value as needed
@@ -221,7 +250,7 @@ class _PickerFillerMachineProductScreenState
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
-        duration: Duration(seconds: 3),
+        duration: Duration(milliseconds: 1000),
       ),
     );
   }
@@ -254,12 +283,117 @@ class _PickerFillerMachineProductScreenState
         ),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          top: 80, left: 16, right: 16,
+          bottom: MediaQuery.of(context).size.height - 150,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
-        duration: Duration(seconds: 4),
+        duration: Duration(seconds: 1),
       ),
     );
+  }
+  void _showProductPickedMessage(PickerMachineProductModel product) {
+    if (product.isPicked) {
+      // Success design (same as above)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.check, color: Colors.white, size: 16),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.role == "picker" ? 'Product Picked!' : 'Product Filled!',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        product.displayName,
+                        style: TextStyle(fontSize: 12, color: Colors.white70),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            top: 80, left: 16, right: 16,
+            bottom: MediaQuery.of(context).size.height - 150,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: Duration(milliseconds: 1000),
+        ),
+      );
+    } else {
+      // Cross mark design for unpicked
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Container(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.role == "picker" ? 'Product Removed!' : 'Product Unfilled!',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        product.displayName,
+                        style: TextStyle(fontSize: 12, color: Colors.white70),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            top: 80, left: 16, right: 16,
+            bottom: MediaQuery.of(context).size.height - 150,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: Duration(milliseconds: 1000),
+        ),
+      );
+    }
   }
 
   void _setupAnimations() {
@@ -428,7 +562,6 @@ class _PickerFillerMachineProductScreenState
       ),
     );
   }
-
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -557,6 +690,7 @@ class _PickerFillerMachineProductScreenState
                         }
                         _updateTotalPickedItems();
                       });
+                      _showProductPickedMessage(product);
                     },
                     onQuantityChanged: (newQuantity) {
                       setState(() {
@@ -576,48 +710,51 @@ class _PickerFillerMachineProductScreenState
 
   Widget _buildEmptyState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 80,
-              color: AppColors.onSurfaceVariant.withOpacity(0.5),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _searchQuery.isNotEmpty ? 'No products found' : 'No products available',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.onSurfaceVariant,
+      child: SingleChildScrollView( // Add scrollable container
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min, // Important: minimize column size
+            children: [
+              Icon(
+                Icons.inventory_2_outlined,
+                size: 80,
+                color: AppColors.onSurfaceVariant.withOpacity(0.5),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _searchQuery.isNotEmpty
-                  ? 'Try adjusting your search or scan a barcode'
-                  : 'Products will appear here when available',
-              style: TextStyle(
-                color: AppColors.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (_searchQuery.isNotEmpty) ...[
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _searchQuery = '';
-                  });
-                },
-                icon: const Icon(Icons.clear_all),
-                label: const Text('Clear Search'),
+              Text(
+                _searchQuery.isNotEmpty ? 'No products found' : 'No products available',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
+              const SizedBox(height: 16),
+              Text(
+                _searchQuery.isNotEmpty
+                    ? 'Try adjusting your search or scan a barcode'
+                    : 'Products will appear here when available',
+                style: TextStyle(
+                  color: AppColors.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (_searchQuery.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                  icon: const Icon(Icons.clear_all),
+                  label: const Text('Clear Search'),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -734,27 +871,31 @@ class _PickerFillerMachineProductScreenState
           .savePickerMachineProductData(widget.role, pickListIds,requiredData);
 
       if (success) {
-        Navigator.pop(context, true);
+        final result = Navigator.pop(context, true);
         Provider.of<PickerDataProvider>(context, listen: false)
             .updateMachinePickListState(pickListIds, "picked");
-        Navigator.pop(context);
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context); // Remove loading dialog
+        }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 8),
-                Text('Operation completed successfully!'),
-              ],
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Operation completed successfully!'),
+                ],
+              ),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

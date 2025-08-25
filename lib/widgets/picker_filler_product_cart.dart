@@ -1,6 +1,12 @@
+
 import 'package:flutter/material.dart';
 import '../Models/picker_machine_product.dart';
 import '../constants/theme.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 
 class ProfessionalProductCard extends StatefulWidget {
   final String role;
@@ -30,7 +36,8 @@ class _ProfessionalProductCardState extends State<ProfessionalProductCard>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
-  late Animation<Color?> _colorAnimation;
+  late AnimationController _toggleController;
+  late Animation<double> _toggleAnimation;
 
   @override
   void initState() {
@@ -40,25 +47,33 @@ class _ProfessionalProductCardState extends State<ProfessionalProductCard>
 
   void _setupAnimations() {
     _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _toggleController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
 
     _scaleAnimation = Tween<double>(
       begin: 1.0,
-      end: 1.02,
+      end: 0.98,
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
 
-    _colorAnimation = ColorTween(
-      begin: AppColors.surface,
-      end: AppColors.primary.withOpacity(0.05),
-    ).animate(_animationController);
+    _toggleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _toggleController,
+      curve: Curves.elasticOut,
+    ));
 
     if (widget.isSelected) {
-      _animationController.forward();
+      _toggleController.forward();
     }
   }
 
@@ -67,9 +82,9 @@ class _ProfessionalProductCardState extends State<ProfessionalProductCard>
     super.didUpdateWidget(oldWidget);
     if (widget.isSelected != oldWidget.isSelected) {
       if (widget.isSelected) {
-        _animationController.forward();
+        _toggleController.forward();
       } else {
-        _animationController.reverse();
+        _toggleController.reverse();
       }
     }
   }
@@ -77,82 +92,115 @@ class _ProfessionalProductCardState extends State<ProfessionalProductCard>
   @override
   void dispose() {
     _animationController.dispose();
+    _toggleController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+
+    String? base64String = widget.product.displayImage;
+    Uint8List? imageByte;
+
+    if (base64String != null && base64String.isNotEmpty) {
+      if (base64String.contains(',')) {
+        base64String = base64String.split(',').last;
+      }
+      try {
+        imageByte = base64Decode(base64String);
+      } catch (e) {
+        debugPrint("Image decode error: $e");
+      }
+    }
     return ScaleTransition(
       scale: _scaleAnimation,
-      child: AnimatedBuilder(
-        animation: _colorAnimation,
-        builder: (context, child) {
-          return Container(
-            decoration: BoxDecoration(
-              color: _colorAnimation.value,
-              borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-              border: Border.all(
-                color: widget.isSelected
-                    ? AppColors.primary.withOpacity(0.4)
-                    : AppColors.divider,
-                width: widget.isSelected ? 2 : 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.isSelected
-                      ? AppColors.primary.withOpacity(0.2)
-                      : AppColors.shadow,
-                  blurRadius: widget.isSelected ? 8 : 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+      child: Container(
+        constraints: const BoxConstraints(
+          minHeight: 70,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          border: Border.all(
+            color: widget.isSelected
+                ? AppColors.primary
+                : AppColors.divider,
+            width: widget.isSelected ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: widget.isSelected
+                  ? AppColors.primary.withOpacity(0.15)
+                  : AppColors.shadow.withOpacity(0.5),
+              blurRadius: widget.isSelected ? 8 : 3,
+              offset: const Offset(0, 2),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onSelectionChanged,
-                borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Row(
-                    children: [
-                      _buildProductIcon(),
-                      const SizedBox(width: AppSpacing.lg),
-                      Expanded(child: _buildProductInfo()),
-                      // _buildQuantityControls(),
-                      const SizedBox(width: AppSpacing.md),
-                      // _buildSelectionCheckbox(),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              _buildProductImage(imageByte),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(flex: 2,child: _buildProductInfo()),
+              const SizedBox(width: AppSpacing.sm),
+              _buildToggleButton(),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildProductIcon() {
+  Widget _buildProductImage(imageByte) {
     return Container(
-      width: 50,
-      height: 50,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
         color: widget.isSelected
-            ? AppColors.primary.withOpacity(0.2)
-            : AppColors.primary.withOpacity(0.1),
-        shape: BoxShape.circle,
+            ? AppColors.primary.withOpacity(0.15)
+            : AppColors.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
         border: Border.all(
           color: widget.isSelected
-              ? AppColors.primary.withOpacity(0.4)
-              : AppColors.primary.withOpacity(0.2),
-          width: 2,
+              ? AppColors.primary.withOpacity(0.3)
+              : AppColors.primary.withOpacity(0.15),
+          width: 1.5,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: imageByte != null
+            ? Image.memory(
+          imageByte,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildImagePlaceholder();
+          },
+        )
+            : _buildImagePlaceholder(),
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.grey.shade200,
+            Colors.grey.shade300,
+          ],
         ),
       ),
       child: Icon(
         Icons.inventory_2_outlined,
-        color: AppColors.primary,
-        size: 24,
+        color: Colors.grey.shade500,
+        size: 32,
       ),
     );
   }
@@ -160,289 +208,126 @@ class _ProfessionalProductCardState extends State<ProfessionalProductCard>
   Widget _buildProductInfo() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // Product name
         Text(
           widget.product.displayName,
-          style: AppTextStyles.subtitle1.copyWith(
-            fontWeight: FontWeight.bold,
+          style: AppTextStyles.body1.copyWith(
+            fontWeight: FontWeight.w600,
             color: widget.isSelected
                 ? AppColors.primary
                 : AppColors.onSurface,
           ),
-          maxLines: 2,
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: AppSpacing.xs),
-
-        // Machine name with icon
-        if(widget.role == "picker" && widget.bulkView)Row(
-          children: [
-            Icon(
-              Icons.kitchen,
-              size: 16,
-              color: AppColors.onSurfaceVariant,
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(
-                widget.product.machineName,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: 2),
 
         // Pick/Fill amount
         Text(
           widget.role == "picker"
-              ? "Pick Amount: ${widget.product.pickAmount}"
-              : "Fill Amount: ${widget.product.pickAmount}",
-          style: AppTextStyles.body2.copyWith(
+              ? "Pick: ${widget.product.pickAmount}"
+              : "Fill: ${widget.product.pickAmount}",
+          style: AppTextStyles.caption.copyWith(
             color: AppColors.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
           ),
         ),
+
+        // Machine name for bulk view
+        if (widget.role == "picker" && widget.bulkView) ...[
+          const SizedBox(height: 1),
+          Row(
+            children: [
+              Icon(
+                Icons.kitchen,
+                size: 12,
+                color: AppColors.onSurfaceVariant.withOpacity(0.7),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  widget.product.machineName,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.onSurfaceVariant.withOpacity(0.8),
+                    fontSize: 10,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
-}
 
-// Alternative layout with machine name as a badge
-class ProfessionalProductCardWithBadge extends StatefulWidget {
-  final String role;
-  final PickerMachineProductModel product;
-  final String machineName;
-  final bool isSelected;
-  final int quantity;
-  final VoidCallback onSelectionChanged;
-  final ValueChanged<int> onQuantityChanged;
-
-  const ProfessionalProductCardWithBadge({
-    super.key,
-    required this.role,
-    required this.product,
-    required this.machineName,
-    required this.isSelected,
-    required this.quantity,
-    required this.onSelectionChanged,
-    required this.onQuantityChanged,
-  });
-
-  @override
-  State<ProfessionalProductCardWithBadge> createState() => _ProfessionalProductCardWithBadgeState();
-}
-
-class _ProfessionalProductCardWithBadgeState extends State<ProfessionalProductCardWithBadge>
-    with TickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  late Animation<Color?> _colorAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _setupAnimations();
-  }
-
-  void _setupAnimations() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-
-    _colorAnimation = ColorTween(
-      begin: AppColors.surface,
-      end: AppColors.primary.withOpacity(0.05),
-    ).animate(_animationController);
-
-    if (widget.isSelected) {
-      _animationController.forward();
-    }
-  }
-
-  @override
-  void didUpdateWidget(ProfessionalProductCardWithBadge oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isSelected != oldWidget.isSelected) {
-      if (widget.isSelected) {
-        _animationController.forward();
-      } else {
-        _animationController.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
+  Widget _buildToggleButton() {
+    return GestureDetector(
+      onTap: widget.onSelectionChanged, // Call the selection function when tapped
       child: AnimatedBuilder(
-        animation: _colorAnimation,
+        animation: _toggleAnimation,
         builder: (context, child) {
           return Container(
+            width: 44,
+            height: 24,
             decoration: BoxDecoration(
-              color: _colorAnimation.value,
-              borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+              color: widget.isSelected
+                  ? AppColors.primary
+                  : AppColors.disabled.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: widget.isSelected
-                    ? AppColors.primary.withOpacity(0.4)
-                    : AppColors.divider,
-                width: widget.isSelected ? 2 : 1,
+                    ? AppColors.primary
+                    : AppColors.disabled,
+                width: 1,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.isSelected
-                      ? AppColors.primary.withOpacity(0.2)
-                      : AppColors.shadow,
-                  blurRadius: widget.isSelected ? 8 : 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.onSelectionChanged,
-                borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-                child: Stack(
-                  children: [
-                    // Machine name badge positioned at top right
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: _buildMachineBadge(),
+            child: Stack(
+              children: [
+                // Toggle circle
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  left: widget.isSelected ? 22 : 2,
+                  top: 2,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
-                    // Main content
-                    Padding(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      child: Row(
-                        children: [
-                          _buildProductIcon(),
-                          const SizedBox(width: AppSpacing.lg),
-                          Expanded(child: _buildProductInfo()),
-                          const SizedBox(width: AppSpacing.md),
-                        ],
+                  ),
+                ),
+
+                // Optional checkmark when selected
+                if (widget.isSelected)
+                  Positioned(
+                    left: 4,
+                    top: 4,
+                    child: Transform.scale(
+                      scale: _toggleAnimation.value,
+                      child: Icon(
+                        Icons.check,
+                        size: 14,
+                        color: Colors.white,
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildMachineBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.kitchen,
-            size: 12,
-            color: AppColors.primary,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            widget.machineName,
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductIcon() {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        color: widget.isSelected
-            ? AppColors.primary.withOpacity(0.2)
-            : AppColors.primary.withOpacity(0.1),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: widget.isSelected
-              ? AppColors.primary.withOpacity(0.4)
-              : AppColors.primary.withOpacity(0.2),
-          width: 2,
-        ),
-      ),
-      child: Icon(
-        Icons.inventory_2_outlined,
-        color: AppColors.primary,
-        size: 24,
-      ),
-    );
-  }
-
-  Widget _buildProductInfo() {
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.xl), // Space for badge
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Product name
-          Text(
-            widget.product.displayName,
-            style: AppTextStyles.subtitle1.copyWith(
-              fontWeight: FontWeight.bold,
-              color: widget.isSelected
-                  ? AppColors.primary
-                  : AppColors.onSurface,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-
-          // Pick/Fill amount
-          Text(
-            widget.role == "picker"
-                ? "Pick Amount: ${widget.product.pickAmount}"
-                : "Fill Amount: ${widget.product.pickAmount}",
-            style: AppTextStyles.body2.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
-          ),
-        ],
       ),
     );
   }

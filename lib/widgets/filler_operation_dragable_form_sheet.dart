@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import '../Models/hr_employee_model.dart';
 import '../constants/colors.dart';
 import '../constants/theme.dart';
-import '../providers/picker_data_provider.dart';
+import '../providers/picker_filler_data_provider.dart';
 import '../reusebleWidgets/loading_btn.dart';
 
 class FillerOperationConfirmationFormSheet {
@@ -100,6 +100,9 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
   bool _checkMissingPriceTags = false;
   bool _coinMechCheckWith50c = false;
 
+  // Loading states for individual image uploads
+  Map<int, bool> _imageUploadLoading = {};
+
   // Dropdown values - SEPARATE VARIABLES FOR EACH DROPDOWN
   DropDownModel? _selectedEmployee;
   DropDownModel? _selectedCoinsOption;
@@ -133,7 +136,6 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     PictureDescriptionDetail(name: "13. Spoiled product picture", isRequired: false),
   ];
 
-
   @override
   void initState() {
     super.initState();
@@ -157,8 +159,8 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     super.dispose();
   }
 
-  // Helper function to convert file to base64
-  Future<String?> _convertToBase64(String filePath) async {
+  // Optimized: Convert to base64 immediately when file is selected
+  Future<String?> _convertToBase64Immediately(String filePath) async {
     try {
       File file = File(filePath);
       Uint8List bytes = await file.readAsBytes();
@@ -170,8 +172,8 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     }
   }
 
-  // Helper function to convert PlatformFile to base64
-  Future<String?> _convertPlatformFileToBase64(PlatformFile platformFile) async {
+  // Optimized: Convert PlatformFile to base64 immediately when file is selected
+  Future<String?> _convertPlatformFileToBase64Immediately(PlatformFile platformFile) async {
     try {
       Uint8List? bytes = platformFile.bytes;
       if (bytes != null) {
@@ -187,6 +189,116 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     } catch (e) {
       print('Error converting platform file to base64: $e');
       return null;
+    }
+  }
+
+  // Optimized: Handle image upload with immediate conversion and loading state
+  Future<void> _handleImageUpload(int index, PictureDescriptionDetail detail) async {
+    // Set loading state
+    setState(() {
+      _imageUploadLoading[index] = true;
+    });
+
+    try {
+      final source = await showDialog<ImageSource>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Upload Option'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.camera_alt),
+                title: Text('Take a Picture'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: Icon(Icons.upload_file),
+                title: Text('Pick a File'),
+                onTap: () => Navigator.pop(context, null),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (source != null) {
+        // Camera selected
+        final XFile? photo = await ImagePicker().pickImage(
+          source: source,
+          imageQuality: 70, // Reduce quality for better performance
+          maxWidth: 1920,   // Limit resolution
+          maxHeight: 1080,
+        );
+
+        if (photo != null) {
+          // Show immediate feedback
+          detail.controller.text = photo.name;
+          setState(() {});
+
+          // Convert to base64 in background
+          String? base64String = await _convertToBase64Immediately(photo.path);
+          if (base64String != null) {
+            detail.base64Image = base64String;
+            detail.fileName = photo.name;
+            detail.isUploaded = true;
+
+            // Show success feedback
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Image uploaded successfully: ${photo.name}'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      } else {
+        // File picker selected
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+        );
+
+        if (result != null && result.files.isNotEmpty) {
+          PlatformFile file = result.files.first;
+
+          // Show immediate feedback
+          detail.controller.text = file.name;
+          setState(() {});
+
+          // Convert to base64 in background
+          String? base64String = await _convertPlatformFileToBase64Immediately(file);
+          if (base64String != null) {
+            detail.base64Image = base64String;
+            detail.fileName = file.name;
+            detail.isUploaded = true;
+
+            // Show success feedback
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('File uploaded successfully: ${file.name}'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Show error feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error uploading file: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      // Clear loading state
+      setState(() {
+        _imageUploadLoading[index] = false;
+      });
     }
   }
 
@@ -553,8 +665,10 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     );
   }
 
+  // Enhanced upload field with loading indicator and success state
   Widget _buildFUploadField(
-      TextEditingController controller, {
+      TextEditingController controller,
+      int index, {
         bool required = false,
         String? hint,
         IconData? icon,
@@ -563,17 +677,20 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
         bool enabled = true,
         required VoidCallback onIconPressed,
       }) {
+    bool isLoading = _imageUploadLoading[index] ?? false;
+    bool isUploaded = pictureDescDetails[index].isUploaded;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: enabled ? onIconPressed : null,
+          onTap: enabled && !isLoading ? onIconPressed : null,
           child: AbsorbPointer(
             child: TextFormField(
               controller: controller,
               readOnly: true,
-              enabled: enabled,
+              enabled: enabled && !isLoading,
               maxLines: maxLines,
               keyboardType: keyboardType,
               validator: (required)
@@ -586,21 +703,40 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
                   : null,
               decoration: InputDecoration(
                 hintText: hint,
-                prefixIcon: icon != null ? Icon(icon, color: AppColors.primary) : null,
+                prefixIcon: isLoading
+                    ? Container(
+                  width: 24,
+                  height: 24,
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                  ),
+                )
+                    : Icon(
+                    isUploaded ? Icons.check_circle : (icon ?? Icons.cloud_upload),
+                    color: isUploaded ? Colors.green : AppColors.primary
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide(
+                    color: isUploaded ? Colors.green : Colors.grey[300]!,
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide(
+                    color: isUploaded ? Colors.green : Colors.grey[300]!,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.primary),
+                  borderSide: BorderSide(
+                    color: isUploaded ? Colors.green : AppColors.primary,
+                  ),
                 ),
                 filled: true,
-                fillColor: Colors.grey[50],
+                fillColor: isUploaded ? Colors.green[50] : Colors.grey[50],
               ),
               style: TextStyle(
                 color: enabled ? AppColors.onSurface : AppColors.disabled,
@@ -768,67 +904,19 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
         Divider(),
         SizedBox(height: 8),
         Column(
-          children: pictureDescDetails.map((detail) {
+          children: pictureDescDetails.asMap().entries.map((entry) {
+            int index = entry.key;
+            PictureDescriptionDetail detail = entry.value;
+
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: _buildFUploadField(
-                  detail.controller,
-                  hint: detail.name,
-                  required: detail.isRequired,
-                  icon: Icons.cloud_upload,
-                  onIconPressed: () async {
-                    final source = await showDialog<ImageSource>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text('Upload Option'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              leading: Icon(Icons.camera_alt),
-                              title: Text('Take a Picture'),
-                              onTap: () => Navigator.pop(context, ImageSource.camera),
-                            ),
-                            ListTile(
-                              leading: Icon(Icons.upload_file),
-                              title: Text('Pick a File'),
-                              onTap: () => Navigator.pop(context, null),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-
-                    if (source != null) {
-                      // Camera selected
-                      final XFile? photo = await ImagePicker().pickImage(source: source);
-                      if (photo != null) {
-                        detail.controller.text = photo.name;
-                        // Convert to base64 and store
-                        String? base64String = await _convertToBase64(photo.path);
-                        if (base64String != null) {
-                          detail.base64Image = base64String;
-                          detail.fileName = photo.name;
-                        }
-                      }
-                    } else {
-                      // File picker selected
-                      FilePickerResult? result = await FilePicker.platform.pickFiles(
-                        type: FileType.image,
-                        allowMultiple: false,
-                      );
-                      if (result != null && result.files.isNotEmpty) {
-                        PlatformFile file = result.files.first;
-                        detail.controller.text = file.name;
-                        // Convert to base64 and store
-                        String? base64String = await _convertPlatformFileToBase64(file);
-                        if (base64String != null) {
-                          detail.base64Image = base64String;
-                          detail.fileName = file.name;
-                        }
-                      }
-                    }
-                  }
+                detail.controller,
+                index,
+                hint: detail.name,
+                required: detail.isRequired,
+                icon: Icons.cloud_upload,
+                onIconPressed: () => _handleImageUpload(index, detail),
               ),
             );
           }).toList(),
@@ -837,23 +925,24 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
     );
   }
 
+  // Optimized submit form - no heavy operations during submission
   void _submitForm() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    try {
-      // Create list of images with base64 data
-      Navigator.pop(context);
-      List<String> imagesList = [];
 
-      for (int i = 0; i < pictureDescDetails.length; i++) {
-        PictureDescriptionDetail detail = pictureDescDetails[i];
+    try {
+      Navigator.pop(context);
+
+      // Images are already converted to base64, just collect them
+      List<String> imagesList = [];
+      for (PictureDescriptionDetail detail in pictureDescDetails) {
         if (detail.base64Image != null && detail.base64Image!.isNotEmpty) {
           imagesList.add(detail.base64Image!);
         }
       }
 
-      // Collect form data
+      // Collect form data - this is now very fast
       final formData = {
         'filler_employee_id': _selectedEmployee?.name,
         'filler_machine_id': _machineIdController.text,
@@ -877,16 +966,12 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
         'filler_attachment_ids': imagesList,
       };
 
-      print('Form submitted with ${imagesList.length} images');
+      print('Form submitted with ${imagesList.length} images (already converted)');
 
-      // Call the onConfirm callback with form data
-      // This should be awaited if it returns a Future
+      // Call the onConfirm callback with form data - this should be fast now
       await widget.onConfirm(formData);
 
     } catch (e) {
-      // Dismiss loading dialog on error
-      Navigator.pop(context);
-
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -898,16 +983,18 @@ class _FillerConfirmationFormState extends State<FillerConfirmationForm> {
   }
 }
 
-// Updated PictureDescriptionDetail class with base64 and fileName properties
+// Enhanced PictureDescriptionDetail class with upload status
 class PictureDescriptionDetail {
   final String name;
   final TextEditingController controller;
   final bool isRequired;
-  String? base64Image; // Store base64 string
-  String? fileName;    // Store file name
+  String? base64Image;
+  String? fileName;
+  bool isUploaded; // Track upload status
 
   PictureDescriptionDetail({
     required this.name,
-    this.isRequired = true // Default to true
-  }) : controller = TextEditingController();
+    this.isRequired = true,
+  }) : controller = TextEditingController(),
+        isUploaded = false; // Initialize as not uploaded
 }

@@ -2,11 +2,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xml_rpc/client_c.dart' as xml_rpc;
 
 import '../constants/static_data.dart';
-
+import 'dart:convert';
+import 'dart:typed_data';
 class MachinePickListModel {
   final int id;
   final int pick_list_id;
   final String name;
+  double latitude;
+  double longitude;
   String state;
   final List pickListIds;
   List basketNumbers;
@@ -16,6 +19,8 @@ class MachinePickListModel {
     required this.id,
     required this.pick_list_id,
     required this.name,
+    required this.latitude,
+    required this.longitude,
     required this.state,
     required this.pickListIds,
     required this.basketNumbers,
@@ -39,6 +44,8 @@ class MachinePickListModel {
       pickListIds: xmlRpcData['pick_list_ids'] as List,
       basketNumbers: xmlRpcData['tag_ids'],
       basketNumbersDisplay: List<String>.from(xmlRpcData['tag_names'] ?? []),
+      latitude: xmlRpcData['latitude'],
+      longitude: xmlRpcData['longitude'],
     );
   }
 }

@@ -249,7 +249,7 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
             ],
           ),
           // Instruction label
-          if(widget.role == "picker"  && !widget.isSelectionMode)Container(
+          if( !widget.isSelectionMode)Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.sm,
               vertical: 2,
@@ -263,7 +263,7 @@ class _PickerFillerMatchingCartState extends State<PickerFillerMatchingCart>
               ),
             ),
             child: Text(
-              'Tap to doubleTap scan basket number',
+              widget.role == "picker" ? 'Tap to doubleTap scan basket number':'Tap to doubleTap navigate to the location',
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.primary.withOpacity(0.8),
                 fontWeight: FontWeight.w500,

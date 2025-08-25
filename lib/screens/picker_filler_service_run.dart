@@ -8,7 +8,7 @@ import 'package:staff_mangement/screens/picker_machine_product_screen.dart';
 import '../Models/machine_pick_list_model.dart';
 import '../Models/picker_machine_product.dart';
 import '../constants/theme.dart';
-import '../providers/picker_data_provider.dart';
+import '../providers/picker_filler_data_provider.dart';
 import '../reusebleWidgets/app_bar_section.dart';
 import '../widgets/picker_filler_machine_cart.dart';
 import '../widgets/picker_service_run_cart.dart';
@@ -325,7 +325,7 @@ class _PickerServiceRunScreenState extends State<PickerServiceRunScreen>
   }
 
   void _showErrorMessage(String message) {
-    if(mounted) return;
+    if (!mounted || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

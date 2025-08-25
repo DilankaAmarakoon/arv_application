@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:staff_mangement/Models/basket_details_model.dart';
 import 'package:staff_mangement/constants/theme.dart';
-import 'package:staff_mangement/providers/picker_data_provider.dart';
-
+import 'package:staff_mangement/providers/picker_filler_data_provider.dart';
 import '../servicess/barcode_scanner_service.dart';
 
 Future<List<int>?> showScanBasketDialog(BuildContext context,List<dynamic> basketNumberList) {
@@ -30,7 +29,6 @@ class _ScanBasketDialogState extends State<ScanBasketDialog> {
 
   @override
   void initState() {
-    print("errr.....>${widget.basketNumberList}");
     super.initState();
     _loadBasketDetails();
     _initializeBarcodeScanner();
@@ -111,13 +109,12 @@ class _ScanBasketDialogState extends State<ScanBasketDialog> {
   void _removeScannedBasket(int index) {
     setState(() {
       _scannedBaskets.removeAt(index);
+      _savedBasketNumberList.removeAt(index);
     });
   }
 
   void _onConfirm() {
     if (_scannedBaskets.isNotEmpty) {
-      print("llpp..>$_savedBasketNumberList");
-
       Navigator.of(context).pop(_savedBasketNumberList);
     }
   }

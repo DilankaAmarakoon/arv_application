@@ -16,6 +16,7 @@ class PickerDataProvider with ChangeNotifier {
   List<PickerMachineProductModel> pickerMachineProductDetails = [];
   List<DropDownModel> hrEmployeeData = [];
   List<BasketDetailsModel> basketData = [];
+  List<dynamic> locationCoordinates =[];
 
   Future fetchServiceRunList() async {
     print("formattedDate  $formattedDate");
@@ -46,6 +47,8 @@ class PickerDataProvider with ChangeNotifier {
           },
         ],
       );
+
+      print("opppp..>$pickerServiceRun");
 
       pickerServiceRunDetails =
           pickerServiceRun
@@ -123,11 +126,10 @@ class PickerDataProvider with ChangeNotifier {
           'search_read',
           filtered,
           {
-            'fields': ['id', 'machine_id', 'pick_list_ids', 'state', 'planned_date', 'filler_employee_id', 'tag_ids'],
+            'fields': ['id', 'machine_id', 'pick_list_ids', 'state', 'planned_date', 'filler_employee_id', 'tag_ids','latitude','longitude'],
           },
         ],
       );
-
       // Process machine pick list and add tag names
       pickerMachineDetails = machinePickList
           .cast<Map<String, dynamic>>()
@@ -187,10 +189,11 @@ class PickerDataProvider with ChangeNotifier {
           'search_read',
           filtered,
           {
-            'fields': ['id', 'product_id', 'pick_amount', 'picked', 'filled','machine_id','barcode'],
+            'fields': ['id', 'product_id', 'pick_amount', 'picked', 'filled','machine_id','barcode','image_1920'],
           },
         ],
       );
+      print("uii.>${machineProductData}");
       pickerMachineProductDetails =
           machineProductData
               .cast<Map<String, dynamic>>()
@@ -198,6 +201,13 @@ class PickerDataProvider with ChangeNotifier {
               .toList()
               .cast<PickerMachineProductModel>();
 
+
+      pickerMachineProductDetails.sort((a, b) {
+        final aId =  a.productId;
+        final bId =  b.productId;
+        return aId.compareTo(bId);
+      });
+      print("success");
       return pickerMachineProductDetails;
 
       return [];
@@ -316,11 +326,6 @@ class PickerDataProvider with ChangeNotifier {
       finalRequiredData["state"] = role == "picker" ? "picked" : "filled";
 
       // Add requiredData only if role is not "picker"
-      if (role != "picker") {
-        print("🔍 Final required data: $requiredData");
-        // Clean and add requiredData fields
-      }
-      print("🔍 Final required data: $finalRequiredData");
       if (role != "picker") {
         // Create attachments from the base64 image data
         List<int> createdAttachmentIds = [];
@@ -478,7 +483,7 @@ class PickerDataProvider with ChangeNotifier {
         }
       }
     }
-    notifyListeners(); // This will update all listening widgets
+    notifyListeners();
   }
 
   void updateProductPickedStatus(int productId, bool isPicked) {
@@ -488,5 +493,4 @@ class PickerDataProvider with ChangeNotifier {
       notifyListeners(); // Notify UI to rebuild
     }
   }
-
 }

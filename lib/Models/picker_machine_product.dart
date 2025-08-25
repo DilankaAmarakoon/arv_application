@@ -8,6 +8,7 @@ class PickerMachineProductModel {
   final int productId;
   final String displayName;
   final String machineName;
+  final String displayImage;
   final int pickAmount;
   final String barcode;
   bool isPicked;
@@ -18,6 +19,7 @@ class PickerMachineProductModel {
     required this.productId,
     required this.displayName,
     required this.machineName,
+    required this.displayImage,
     required this.pickAmount,
     required this.barcode,
     required this.isPicked,
@@ -33,7 +35,8 @@ class PickerMachineProductModel {
         machineName :xmlRpcData["machine_id"] ==false ?  "" : xmlRpcData["machine_id"][1],
         pickAmount: xmlRpcData["pick_amount"],
         isPicked: xmlRpcData["picked"],
-       isFilled: xmlRpcData["filled"],
+        isFilled: xmlRpcData["filled"],
+        displayImage: xmlRpcData["image_1920"] == false ? "" :xmlRpcData["image_1920"]  ,
     ));
   }
 }

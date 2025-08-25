@@ -8,12 +8,10 @@ class NotificationStateProvider with ChangeNotifier {
     _notificationCount = value;
     notifyListeners();
   }
-
   void incrementNotificationCount() {
     _notificationCount++;
     notifyListeners();
   }
-
   Future<void> fetchNotificationCount(count) async {
     _notificationCount = count;
     notifyListeners();
